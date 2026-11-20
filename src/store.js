@@ -223,8 +223,73 @@ function bindMobileMenu() {
   });
 }
 
+/* =========================================================
+   Movimiento: apariciones al bajar y menú que se esconde
+   ========================================================= */
+// Títulos y textos sueltos aparecen solos; las listas aparecen elemento por elemento.
+const REVEAL = '.title, .eyebrow, .about-title, .about p, .about .btn, .brand-col-title, .faq-head p, .shop-eyebrow, .shop-title, .see-all';
+const STAGGER = '.perks-list, .minis-steps, .brand-list, .faq-list, .filters';
+
+const revealObserver = new IntersectionObserver(
+  (entries) => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      // Los hijos se numeran al aparecer (algunas listas se llenan después de cargar).
+      [...en.target.children].forEach((c, i) => c.style.setProperty('--i', i));
+      en.target.classList.add('is-in');
+      revealObserver.unobserve(en.target);
+    }
+  },
+  { rootMargin: '0px 0px -10% 0px', threshold: 0.12 },
+);
+
+export function watchReveals(root = document) {
+  if (reduceMotion) return;
+  $$(REVEAL, root).forEach((el) => {
+    if (el.closest('.hero')) return;
+    el.classList.add('rv');
+    // Los títulos grandes se destapan con una capa interior: si el recorte se aplicara al título mismo,
+    // el navegador no detectaría que entró en pantalla.
+    if (el.matches('.title, .shop-title, .about-title') && !el.querySelector(':scope > .rv-in')) {
+      el.innerHTML = `<span class="rv-in">${el.innerHTML}</span>`;
+    }
+    revealObserver.observe(el);
+  });
+  $$(STAGGER, root).forEach((el) => {
+    el.classList.add('rv-stagger');
+    revealObserver.observe(el);
+  });
+  // Íconos que se dibujan solos (los trazos se miden como 1 para animarlos fácil).
+  $$('.perks-list svg :is(path, rect, circle)', root).forEach((s) => s.setAttribute('pathLength', '1'));
+}
+
+function bindNavOnScroll() {
+  const nav = $('#nav');
+  if (!nav) return;
+  let lastY = window.scrollY;
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const y = window.scrollY;
+    nav.classList.toggle('is-scrolled', y > 8);
+    // Se esconde al bajar (para dejar ver más) y vuelve apenas se sube un poco.
+    if (y > 260 && y > lastY + 6 && !document.body.classList.contains('is-locked')) nav.classList.add('is-hidden');
+    else if (y < lastY - 6 || y <= 260) nav.classList.remove('is-hidden');
+    lastY = y;
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  }, { passive: true });
+  update();
+}
+
 // Prepara lo común de cualquier página de la tienda.
 export function initPage() {
+  watchReveals();
+  bindNavOnScroll();
   $$('[data-whatsapp]').forEach((a) => {
     a.href = waLink('Hola, quiero información sobre sus perfumes.');
     a.target = '_blank';

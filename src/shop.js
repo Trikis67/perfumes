@@ -68,7 +68,7 @@ function render() {
   grid.innerHTML = list.map(cardHTML).join('');
   revealCards(grid);
   const title = titleFor(s);
-  $('#shopTitle').textContent = title;
+  ($('#shopTitle .rv-in') || $('#shopTitle')).textContent = title;
   $('#crumbHere').textContent = title;
   document.title = `${title} · Ánima`;
   $('#shopCount').textContent = `${list.length} ${list.length === 1 ? 'perfume' : 'perfumes'}`;

@@ -1690,3 +1690,253 @@ button {
     width: 11vw;
   }
 }
+
+/* =========================================================
+   Movimiento (todo se apaga con "reducir movimiento")
+   ========================================================= */
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+
+  /* Menú: se esconde al bajar, vuelve al subir, sombra suave al despegarse */
+  .nav {
+    transition: transform 420ms var(--ease), box-shadow 300ms ease;
+  }
+  .nav.is-hidden {
+    transform: translateY(-100%);
+  }
+  .nav.is-scrolled {
+    box-shadow: 0 6px 24px rgba(20, 18, 15, 0.08);
+  }
+
+  /* ---------- Portada ---------- */
+  /* Nombre letra por letra, subiendo desde una línea invisible */
+  .hero-name .hw {
+    display: inline-block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+    vertical-align: top;
+  }
+  .hero-name .hc {
+    display: inline-block;
+    transform: translateY(110%);
+    opacity: 0;
+    transition: transform 1000ms var(--ease) calc(180ms + var(--c) * 45ms), opacity 500ms ease calc(180ms + var(--c) * 45ms);
+  }
+  .hero.is-in .hero-name .hc {
+    transform: none;
+    opacity: 1;
+  }
+
+  /* Los haces se encienden de arriba hacia abajo, del centro hacia afuera, y luego respiran */
+  .hero .hero-lights i:nth-child(n) {
+    transform-origin: 50% 0;
+    animation:
+      beam-on 1400ms var(--ease) calc(150ms + var(--b, 0) * 140ms) both,
+      beam var(--dur, 7s) ease-in-out 1600ms infinite alternate;
+  }
+  .hero .hero-lights i:nth-child(1),
+  .hero .hero-lights i:nth-child(5) {
+    --b: 2;
+  }
+  .hero .hero-lights i:nth-child(2),
+  .hero .hero-lights i:nth-child(4) {
+    --b: 1;
+    --dur: 9s;
+  }
+  .hero .hero-lights i:nth-child(3) {
+    --b: 0;
+    --dur: 11s;
+  }
+  @keyframes beam-on {
+    from {
+      transform: translateX(-50%) scaleY(0);
+    }
+    to {
+      transform: translateX(-50%) scaleY(1);
+    }
+  }
+
+  /* El frasco sube con calma y después flota apenas */
+  .js .hero-lineup > .hero-bottle {
+    transform: translateY(46px) scale(0.94);
+    transition: opacity 900ms ease 200ms, transform 1400ms var(--ease) 200ms;
+  }
+  .js .hero.is-in .hero-lineup > .hero-bottle {
+    transform: none;
+  }
+  .hero-bottle > :is(.bottle, .hero-photo),
+  .lineup-side > * {
+    animation: float 6s ease-in-out 1.8s infinite;
+  }
+  .lineup-side:nth-child(2n) > * {
+    animation-delay: 2.6s;
+    animation-duration: 7s;
+  }
+  @keyframes float {
+    50% {
+      translate: 0 -8px;
+    }
+  }
+  /* La línea del piso se dibuja desde el centro y el resplandor aparece después */
+  .hero-bottle::before {
+    transform: translateX(-50%) scaleX(0);
+    transition: transform 1600ms var(--ease) 700ms;
+  }
+  .hero.is-in .hero-bottle::before {
+    transform: translateX(-50%) scaleX(1);
+  }
+  .hero-bottle::after {
+    opacity: 0;
+    transition: opacity 1600ms ease 900ms;
+  }
+  .hero.is-in .hero-bottle::after {
+    opacity: 1;
+  }
+
+  /* Cuenta regresiva: el número que cambia cae en su lugar */
+  .countdown strong {
+    display: inline-block;
+  }
+  .countdown strong.flip {
+    animation: flip 520ms var(--ease);
+  }
+  @keyframes flip {
+    from {
+      transform: translateY(-45%);
+      opacity: 0;
+      filter: blur(3px);
+    }
+  }
+
+  /* ---------- Apariciones al bajar ---------- */
+  .rv {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 800ms ease, transform 1000ms var(--ease);
+  }
+  .rv.is-in {
+    opacity: 1;
+    transform: none;
+  }
+  /* Los títulos grandes se destapan de abajo hacia arriba (la capa interior se recorta) */
+  .rv:is(.title, .shop-title, .about-title) {
+    opacity: 1;
+    transform: none;
+  }
+  .rv .rv-in {
+    display: block;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(0.4em);
+    transition: clip-path 1200ms var(--ease), transform 1200ms var(--ease);
+  }
+  .rv.is-in .rv-in {
+    clip-path: inset(-10% -10% -20% -10%);
+    transform: none;
+  }
+  .rv-stagger > * {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 700ms ease calc(var(--i, 0) * 90ms), transform 900ms var(--ease) calc(var(--i, 0) * 90ms);
+  }
+  .rv-stagger.is-in > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Íconos de beneficios que se dibujan solos */
+  .perks-list svg :is(path, rect, circle) {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 1800ms var(--ease) calc(250ms + var(--i, 0) * 160ms);
+  }
+  .perks-list.is-in svg :is(path, rect, circle) {
+    stroke-dashoffset: 0;
+  }
+  .perks-list svg {
+    transition: transform 400ms var(--ease);
+  }
+  @media (hover: hover) {
+    .perks-list li:hover svg {
+      transform: translateY(-4px) rotate(-4deg);
+    }
+  }
+
+  /* ---------- Destacados ---------- */
+  .sc-slide .sc-word {
+    transform: translateX(-50%) translateY(12%);
+    opacity: 0.5;
+    transition: transform 1000ms var(--ease), opacity 800ms ease;
+  }
+  .sc-slide.is-center .sc-word {
+    transform: translateX(-50%);
+    opacity: 1;
+  }
+  .sc-slide .sc-photo {
+    transform: translateX(-50%) scale(0.9);
+    transition: transform 1000ms var(--ease) 80ms;
+  }
+  .sc-slide.is-center .sc-photo {
+    transform: translateX(-50%);
+  }
+  .sc-light {
+    animation: light-drift 16s ease-in-out infinite alternate;
+  }
+  @keyframes light-drift {
+    to {
+      transform: translateX(7%);
+    }
+  }
+
+  /* ---------- Tarjetas y botones ---------- */
+  .card-stage {
+    transition: transform 500ms var(--ease), box-shadow 500ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-stage:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 34px rgba(20, 18, 15, 0.1);
+    }
+  }
+  /* Brillo que cruza los botones al pasar el mouse */
+  :is(.btn, .card-btn, .hero-btn) {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  :is(.btn, .card-btn, .hero-btn)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.32) 50%, transparent 70%);
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    :is(.btn, .card-btn, .hero-btn):hover::after {
+      transform: translateX(120%);
+      transition: transform 800ms var(--ease);
+    }
+  }
+
+  /* ---------- Preguntas: se abren y cierran con suavidad ---------- */
+  .faq details::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition: block-size 450ms var(--ease), content-visibility 450ms allow-discrete;
+  }
+  .faq details[open]::details-content {
+    block-size: auto;
+  }
+  .faq details[open] p {
+    animation: fade-up 500ms var(--ease);
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
+}

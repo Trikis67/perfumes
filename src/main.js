@@ -49,7 +49,14 @@ function renderHero() {
   applyHeroColors(d.background, d.textColor);
   const brand = brandName(d.brand);
   $('#heroKicker').innerHTML = ['Próximamente', brand].filter(Boolean).map(esc).join('<i aria-hidden="true">·</i>');
-  $('#heroName').textContent = d.name;
+  // El nombre entra letra por letra (los lectores de pantalla leen el nombre completo).
+  const nameEl = $('#heroName');
+  nameEl.setAttribute('aria-label', d.name);
+  let n = 0;
+  nameEl.innerHTML = d.name
+    .split(' ')
+    .map((w) => `<span class="hw" aria-hidden="true">${[...w].map((ch) => `<span class="hc" style="--c:${n++}">${esc(ch)}</span>`).join('')}</span>`)
+    .join(' ');
   $('#heroLead').textContent = d.edition || 'Muy pronto.';
   $('#heroDesc').textContent = [familyName(d.family), d.gender].filter(Boolean).join(' · ');
   $('.hero-btn').href = shopUrl();
@@ -98,9 +105,15 @@ function tick() {
   }
   const s = Math.floor(diff / 1000);
   const pad = (n) => String(n).padStart(2, '0');
+  // Solo el número que cambia hace un pequeño salto.
   const set = (id, v) => {
     const el = $(id);
-    if (el && el.textContent !== v) el.textContent = v;
+    if (!el || el.textContent === v) return;
+    el.textContent = v;
+    if (reduceMotion) return;
+    el.classList.remove('flip');
+    void el.offsetWidth;
+    el.classList.add('flip');
   };
   set('#cdD', pad(Math.floor(s / 86400)));
   set('#cdH', pad(Math.floor((s % 86400) / 3600)));
