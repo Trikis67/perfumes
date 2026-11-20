@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <title>Ánima · Perfumes originales y minis</title>
+    <meta name="description" content="Catálogo de perfumes originales de las mejores marcas, en frasco completo o en mini. Pide por WhatsApp." />
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..600&family=Jost:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#coleccion">Ir a la colección</a>
+
+    <p class="announce">Perfumes 100% originales · Pide por WhatsApp</p>
+
+    <header class="nav" id="nav">
+      <div class="nav-inner">
+        <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span></button>
+        <nav class="nav-links" aria-label="Principal">
+          <a href="#coleccion">Colección</a>
+          <a href="#coleccion" data-jump="minis">Minis</a>
+          <a href="#marcas">Marcas</a>
+        </nav>
+        <a href="#" class="logo" aria-label="Ánima, inicio">Ánima</a>
+        <div class="nav-end">
+          <a href="#preguntas" class="nav-link-end">Preguntas</a>
+          <a href="#" class="wa-btn" data-whatsapp="general" aria-label="Escríbenos por WhatsApp">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20Z" />
+              <path d="M9.2 9.3c.2 2.4 2.3 4.6 4.9 5l1.2-1.2-1.7-.9-.7.6c-.9-.4-1.6-1.1-2-2l.6-.7-.9-1.7-1.4.9Z" fill="currentColor" stroke="none" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <div class="menu" id="menu" hidden>
+      <nav aria-label="Menú">
+        <a href="#coleccion">Colección</a>
+        <a href="#coleccion" data-jump="minis">Minis</a>
+        <a href="#marcas">Marcas</a>
+        <a href="#preguntas">Preguntas</a>
+        <a href="#" data-whatsapp="general">Escríbenos</a>
+      </nav>
+    </div>
+
+    <main>
+      <!-- Próximamente -->
+      <section class="hero" id="hero" aria-labelledby="heroName">
+        <div class="hero-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="hero-inner">
+          <p class="hero-kicker" id="heroKicker">Próximamente</p>
+          <h1 class="hero-name" id="heroName"></h1>
+          <span class="hero-rule" aria-hidden="true"></span>
+          <p class="hero-desc" id="heroDesc"></p>
+          <button class="hero-bottle" id="heroBottle" type="button"></button>
+          <div class="countdown" id="countdown" aria-label="Tiempo para el lanzamiento">
+            <div><strong id="cdD">00</strong><span>días</span></div>
+            <div><strong id="cdH">00</strong><span>horas</span></div>
+            <div><strong id="cdM">00</strong><span>min</span></div>
+            <div><strong id="cdS">00</strong><span>seg</span></div>
+          </div>
+          <form class="notify" id="notifyForm" novalidate>
+            <label class="notify-label" for="notifyEmail">Avísame cuando llegue</label>
+            <div class="notify-field">
+              <input type="email" id="notifyEmail" name="email" placeholder="tucorreo@gmail.com" autocomplete="email" inputmode="email" required aria-describedby="notifyMsg" />
+              <button type="submit">Avísame</button>
+            </div>
+            <p class="notify-msg" id="notifyMsg" aria-live="polite">Te escribimos solo una vez, el día del lanzamiento.</p>
+          </form>
+        </div>
+      </section>
+
+      <!-- Colección -->
+      <section class="collection" id="coleccion" aria-labelledby="collectionTitle">
+        <h2 class="title" id="collectionTitle">La colección</h2>
+        <div class="tabs" id="tabs" role="group" aria-label="Mostrar">
+          <button data-kind="all" aria-pressed="true">Todos</button>
+          <button data-kind="minis" aria-pressed="false">Minis</button>
+          <button data-kind="full" aria-pressed="false">Frasco completo</button>
+        </div>
+        <div class="brand-filter" id="brandFilter" hidden>
+          <span id="brandFilterLabel"></span>
+          <button type="button" id="brandClear">Ver todas las marcas</button>
+        </div>
+        <div class="grid" id="grid"></div>
+        <p class="empty" id="gridEmpty" hidden>No hay perfumes con este filtro todavía.</p>
+      </section>
+
+      <!-- Minis -->
+      <section class="minis" aria-labelledby="minisTitle">
+        <div class="minis-inner">
+          <p class="eyebrow">Minis</p>
+          <h2 class="title" id="minisTitle">El mismo perfume,<br />en tamaño pequeño</h2>
+          <ol class="minis-steps">
+            <li><strong>Original</strong><span>Sale del frasco original de la marca, nada de imitaciones.</span></li>
+            <li><strong>Rellenado</strong><span>Lo pasamos a un frasco pequeño de viaje, con atomizador.</span></li>
+            <li><strong>Pruébalo</strong><span>Úsalo varios días antes de comprar el frasco grande.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- Marcas -->
+      <section class="brands" id="marcas" aria-labelledby="brandsTitle">
+        <h2 class="title" id="brandsTitle">Nuestras marcas</h2>
+        <ul class="brand-list" id="brandList"></ul>
+      </section>
+
+      <!-- Preguntas -->
+      <section class="faq" id="preguntas" aria-labelledby="faqTitle">
+        <div class="faq-head">
+          <h2 class="title" id="faqTitle">Preguntas frecuentes</h2>
+          <p>¿Otra duda? <a href="#" data-whatsapp="general">Escríbenos por WhatsApp</a>.</p>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>¿Los perfumes son originales?</summary>
+            <p>Sí. Todos los perfumes y los minis salen de frascos originales de cada marca.</p>
+          </details>
+          <details>
+            <summary>¿Qué es un mini?</summary>
+            <p>Es el mismo perfume original, rellenado en un frasco pequeño de 5 o 10 ml. Ideal para probarlo o llevarlo en el bolso.</p>
+          </details>
+          <details>
+            <summary>¿Cómo hago mi pedido?</summary>
+            <p>Abre el perfume, elige el tamaño y toca "Pedir por WhatsApp". Ahí confirmamos el envío y la forma de pago.</p>
+          </details>
+          <details>
+            <summary>¿Hacen envíos a todo el país?</summary>
+            <p>Sí. El costo y el tiempo de entrega dependen de tu ciudad y te los confirmamos en el chat.</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <p class="footer-logo">Ánima</p>
+        <nav aria-label="Pie de página">
+          <a href="#coleccion">Colección</a>
+          <a href="#marcas">Marcas</a>
+          <a href="#preguntas">Preguntas</a>
+          <a href="#" data-whatsapp="general">WhatsApp</a>
+        </nav>
+        <p class="footer-note">© <span id="year"></span> Ánima. Perfumes originales.</p>
+      </div>
+    </footer>
+
+    <!-- Detalle del perfume -->
+    <dialog class="modal" id="modal" aria-labelledby="modalName">
+      <div class="sheet-handle" id="sheetHandle" aria-hidden="true"><span></span></div>
+      <button class="icon-btn modal-close" id="modalClose" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+      <div class="modal-grid">
+        <div class="modal-visual" id="modalVisual"></div>
+        <div class="modal-copy">
+          <p class="modal-brand" id="modalBrand"></p>
+          <h2 id="modalName"></h2>
+          <p class="modal-meta" id="modalMeta"></p>
+          <p class="modal-desc" id="modalDesc"></p>
+          <dl class="notes" id="modalNotes"></dl>
+          <div class="sizes" id="modalSizes"></div>
+          <a class="btn btn-block" id="modalOrder" href="#" target="_blank" rel="noopener">Pedir por WhatsApp</a>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

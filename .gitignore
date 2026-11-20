@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+*.log
+
+# Herramientas locales del editor (no son parte de la tienda)
+.agents/
+.claude/
+skills-lock.json
