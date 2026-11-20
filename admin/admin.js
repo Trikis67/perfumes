@@ -1,4 +1,5 @@
 import { request, login, logout, sessionStatus, changePassword, ApiError } from './backend.js';
+import { NOTIFY_ENABLED } from '../src/config.js';
 
 // Familias olfativas: vienen del servidor (el dueño las crea y edita en la pestaña Familias).
 let families = [];
@@ -167,7 +168,7 @@ const VIEWS = {
   lanzamiento: { label: 'Lanzamiento', icon: ICON.launch, render: renderLaunch },
   productos: { label: 'Productos', icon: ICON.bottle, render: renderProducts },
   familias: { label: 'Catálogo', icon: ICON.drop, render: renderFamilies },
-  avisos: { label: 'Avisos', icon: ICON.mail, render: renderSubscribers },
+  ...(NOTIFY_ENABLED ? { avisos: { label: 'Avisos', icon: ICON.mail, render: renderSubscribers } } : {}),
   dispositivos: { label: 'Acceso', icon: ICON.device, render: renderDevices },
 };
 let currentView = null;
@@ -393,7 +394,7 @@ async function renderLaunch(view) {
 
     <div class="stats">
       <div class="stat"><strong id="sDays"></strong><span>días para el lanzamiento</span></div>
-      <div class="stat"><strong>${u.subscribers}</strong><span>personas esperan el aviso</span></div>
+      ${NOTIFY_ENABLED ? `<div class="stat"><strong>${u.subscribers}</strong><span>personas esperan el aviso</span></div>` : ''}
       <div class="stat"><strong id="sPhotos"></strong><span>fotos subidas</span></div>
     </div>
 

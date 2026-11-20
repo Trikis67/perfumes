@@ -1,6 +1,7 @@
 import { products as seedProducts, families as seedFamilies, brands as seedBrands, upcoming as seedUpcoming, WHATSAPP_NUMBER } from './data.js';
 import { bottleSVG } from './bottle.js';
 import { loadCatalog, subscribeToLaunch } from './api.js';
+import { NOTIFY_ENABLED } from './config.js';
 
 // Catálogo vivo desde el panel; si el servidor no responde, se usa el de respaldo.
 const catalog = await loadCatalog({
@@ -88,8 +89,13 @@ function renderHero() {
 
   tick();
   const timer = setInterval(() => tick() || clearInterval(timer), 1000);
-  bindNotify(d);
-  requestAnimationFrame(() => hero.classList.add('is-in'));
+  if (NOTIFY_ENABLED) bindNotify(d);
+  else $('#notifyForm').remove();
+  // Entrada de la portada. El temporizador es de respaldo: algunos navegadores pausan
+  // requestAnimationFrame y la portada nunca debe quedarse invisible.
+  const show = () => hero.classList.add('is-in');
+  requestAnimationFrame(show);
+  setTimeout(show, 120);
 }
 
 // Devuelve false cuando ya llegó la fecha (para detener el reloj).
