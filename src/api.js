@@ -21,6 +21,7 @@ export async function loadCatalog(fallback) {
       products: products.data.map((r) => ({ ...r.data, id: r.id })),
       brands: s.brands || [],
       families: s.families || [],
+      showcase: s.showcase || [],
       upcoming: { ...s.upcoming, photos: s.upcoming.photos || [] },
     };
   } catch {

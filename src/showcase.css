@@ -1,0 +1,92 @@
+/* Tarjeta de Destacados (tienda y panel) */
+.sc-card {
+  --bg: #d9d5cf;
+  --fg: #1d1b19;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  isolation: isolate;
+  container-type: inline-size;
+  background:
+    radial-gradient(120% 70% at 30% 10%, color-mix(in srgb, #fff 35%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, #fff) 0%, var(--bg) 58%, color-mix(in srgb, var(--bg) 82%, #000) 100%);
+}
+/* Luz de ventana: franjas diagonales suaves que cruzan la pared */
+.sc-light {
+  position: absolute;
+  inset: -20% -30%;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    118deg,
+    transparent 0 9%,
+    rgba(255, 255, 255, 0.34) 12%,
+    rgba(255, 255, 255, 0.08) 16%,
+    transparent 21% 30%
+  );
+  filter: blur(10px);
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+}
+/* Palabra gigante detrás del frasco */
+.sc-word {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 9%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  width: 112%;
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: min(36cqw, calc(178cqw / var(--len)));
+  line-height: 0.8;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  text-align: center;
+}
+.sc-word span + span {
+  margin-top: 0.02em;
+}
+/* El frasco, al frente, apoyado en el piso con su reflejo */
+.sc-photo {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 13%;
+  height: 60%;
+  width: auto;
+  max-width: 78%;
+  object-fit: contain;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 18px 22px rgba(0, 0, 0, 0.28));
+  -webkit-box-reflect: below 1px linear-gradient(transparent 68%, rgba(255, 255, 255, 0.28));
+}
+/* Piso brillante */
+.sc-floor {
+  position: absolute;
+  z-index: 1;
+  inset: auto 0 0;
+  height: 15%;
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 30%, transparent), transparent 40%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, #fff), color-mix(in srgb, var(--bg) 88%, #000));
+  border-top: 1px solid color-mix(in srgb, #fff 45%, transparent);
+}
+.sc-empty {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 18px 22px;
+  border: 1.5px dashed color-mix(in srgb, var(--fg) 35%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, #fff 45%, transparent);
+  color: var(--fg);
+  font: 500 13px/1.3 system-ui, sans-serif;
+}

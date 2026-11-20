@@ -4,7 +4,8 @@
 // aunque alguien cambie este código, sin ser admin no puede escribir nada.
 import { supabase, supabaseReady, PHOTO_PREFIX } from '../src/supabase.js';
 import { PANEL_EMAIL_DOMAIN } from '../src/config.js';
-import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, slugify, ValidationError } from '../src/validate.js';
+import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanSlide, slugify, ValidationError } from '../src/validate.js';
+import { SHOWCASE_FONTS } from '../src/fonts.js';
 
 export class ApiError extends Error {
   constructor(message, status = 400) {
@@ -116,6 +117,10 @@ async function saveProduct(p) {
     supabase.from('products').upsert({ id, data, sort: sort ?? 0, visible, updated_at: new Date().toISOString() }).select().single(),
   );
   return rowToProduct(row);
+}
+async function slideContext() {
+  const [brands, products] = await Promise.all([getBrands(), listProducts()]);
+  return { fonts: Object.keys(SHOWCASE_FONTS), brands, productIds: new Set(products.map((p) => p.id)) };
 }
 const uniqueId = (base, taken) => (taken.has(base) ? `${base}-${crypto.randomUUID().slice(0, 4)}` : base);
 
@@ -280,6 +285,83 @@ const routes = [
       if (upcoming?.brand === id) await setSetting('upcoming', { ...upcoming, brand: null });
       await setSetting('brands', list.filter((b) => b.id !== id));
       return { ok: true };
+    },
+  ],
+
+  // Destacados (tarjetas grandes con palabra de fondo)
+  ['GET', /^\/showcase$/, async () => (await getSetting('showcase')) || []],
+  [
+    'POST',
+    /^\/showcase$/,
+    async (_, body) => {
+      const list = (await getSetting('showcase')) || [];
+      if (list.length >= 10) throw new ApiError('Máximo 10 destacados.');
+      const ctx = await slideContext();
+      const slide = { id: crypto.randomUUID().slice(0, 8), ...cleanSlide(body, {}, ctx) };
+      await setSetting('showcase', [...list, slide]);
+      return slide;
+    },
+  ],
+  [
+    'PUT',
+    /^\/showcase\/order$/,
+    async (_, body) => {
+      const list = (await getSetting('showcase')) || [];
+      const ids = Array.isArray(body?.ids) ? body.ids : [];
+      if (ids.length !== list.length || !list.every((x) => ids.includes(x.id))) throw new ApiError('El orden no es válido.');
+      await setSetting('showcase', ids.map((id) => list.find((x) => x.id === id)));
+      return { ok: true };
+    },
+  ],
+  [
+    'PUT',
+    /^\/showcase\/([^/]+)$/,
+    async ([id], body) => {
+      const list = (await getSetting('showcase')) || [];
+      const current = list.find((x) => x.id === id);
+      if (!current) throw new ApiError('Ese destacado no existe.', 404);
+      const updated = cleanSlide(body, current, await slideContext());
+      await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      return updated;
+    },
+  ],
+  [
+    'DELETE',
+    /^\/showcase\/([^/]+)$/,
+    async ([id]) => {
+      const list = (await getSetting('showcase')) || [];
+      const current = list.find((x) => x.id === id);
+      if (!current) throw new ApiError('Ese destacado no existe.', 404);
+      await removeImage(current.photo);
+      await setSetting('showcase', list.filter((x) => x.id !== id));
+      return { ok: true };
+    },
+  ],
+  [
+    'POST',
+    /^\/showcase\/([^/]+)\/photo$/,
+    async ([id], _, form) => {
+      const list = (await getSetting('showcase')) || [];
+      const current = list.find((x) => x.id === id);
+      if (!current) throw new ApiError('Ese destacado no existe.', 404);
+      const url = await saveImage(form?.get('photo'));
+      await removeImage(current.photo);
+      const updated = { ...current, photo: url };
+      await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      return updated;
+    },
+  ],
+  [
+    'DELETE',
+    /^\/showcase\/([^/]+)\/photo$/,
+    async ([id]) => {
+      const list = (await getSetting('showcase')) || [];
+      const current = list.find((x) => x.id === id);
+      if (!current) throw new ApiError('Ese destacado no existe.', 404);
+      await removeImage(current.photo);
+      const updated = { ...current, photo: null };
+      await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      return updated;
     },
   ],
 

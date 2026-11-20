@@ -15,9 +15,9 @@ create table if not exists public.products (
   updated_at timestamptz not null default now()
 );
 
--- Ajustes del sitio: 'upcoming' (próximo lanzamiento), 'families' y 'brands'.
+-- Ajustes del sitio: 'upcoming' (próximo lanzamiento), 'families', 'brands' y 'showcase' (Destacados).
 create table if not exists public.settings (
-  key text primary key check (key in ('upcoming', 'families', 'brands')),
+  key text primary key check (key in ('upcoming', 'families', 'brands', 'showcase')),
   value jsonb not null check (octet_length(value::text) < 50000)
 );
 

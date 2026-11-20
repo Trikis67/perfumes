@@ -1778,3 +1778,24 @@ a {
   background: color-mix(in srgb, currentColor 10%, transparent);
   font-size: 11px; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px;
 }
+
+/* ---------- Destacados ---------- */
+.sc-list { display: grid; gap: 12px; }
+.sc-row {
+  display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 14px;
+  padding: 10px; border-radius: var(--radius); background: var(--white); box-shadow: inset 0 0 0 1px var(--line);
+}
+.sc-row.is-off .sc-thumb { opacity: 0.55; }
+.sc-thumb { display: block; width: 92px; border-radius: 10px; overflow: hidden; }
+.sc-row-info { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.sc-row-info strong { font-family: var(--serif); font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.sc-row-info > span:not(.chip) { font-size: 13px; color: var(--muted); }
+.sc-preview { width: min(320px, 100%); margin: 0 auto 12px; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.12); }
+.sc-photo-btns { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.font-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.font-pick { position: relative; display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 12px; background: var(--white); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; text-align: center; }
+.font-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.font-pick span { font-size: 30px; line-height: 1.1; }
+.font-pick small { font-size: 11px; color: var(--muted); line-height: 1.25; }
+.font-pick:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
+.font-pick:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }

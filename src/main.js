@@ -1,48 +1,26 @@
-import { products as seedProducts, families as seedFamilies, brands as seedBrands, upcoming as seedUpcoming, WHATSAPP_NUMBER } from './data.js';
-import { bottleSVG } from './bottle.js';
-import { loadCatalog, subscribeToLaunch } from './api.js';
+// Portada: Próximamente, Destacados, minis, marcas y preguntas. Los perfumes en venta están en la página Tienda.
+import { subscribeToLaunch } from './api.js';
 import { NOTIFY_ENABLED } from './config.js';
+import { slideHTML } from './showcase.js';
+import {
+  products,
+  upcoming,
+  showcase,
+  usedBrands,
+  $,
+  $$,
+  esc,
+  reduceMotion,
+  brandName,
+  familyName,
+  bottleFor,
+  visualFor,
+  openModal,
+  shopUrl,
+  initPage,
+} from './store.js';
 
-// Catálogo vivo desde el panel; si el servidor no responde, se usa el de respaldo.
-const catalog = await loadCatalog({
-  brands: seedBrands,
-  families: seedFamilies,
-  products: seedProducts,
-  upcoming: { ...seedUpcoming, photos: [], silhouette: true },
-});
-const { products, upcoming } = catalog;
-const brands = catalog.brands || [];
-const families = catalog.families || [];
-
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const fmt = (n) => '$' + Number(n).toLocaleString('es-CO');
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-// 15 ml o menos = mini (perfume original rellenado en frasco pequeño).
-const MINI_MAX_ML = 15;
-const sizesOf = (p) => Object.keys(p.prices).map(Number).sort((a, b) => a - b);
-const hasMinis = (p) => sizesOf(p).some((ml) => ml <= MINI_MAX_ML);
-const hasFull = (p) => sizesOf(p).some((ml) => ml > MINI_MAX_ML);
-const minPrice = (p) => Math.min(...Object.values(p.prices));
-
-const brandName = (id) => brands.find((b) => b.id === id)?.name || '';
-const familyName = (id) => families.find((f) => f.id === id)?.name || '';
-const productById = Object.fromEntries(products.map((p) => [p.id, p]));
-
-// La foto subida desde el panel; mientras no exista, un frasco dibujado provisional.
-const bottleFor = (p, extra = {}) => bottleSVG({ liquid: p.liquid, shape: p.shape, cap: p.cap, ...extra });
-const visualFor = (p, { lazy = true } = {}) =>
-  p.photo ? `<img class="product-photo" src="${esc(p.photo)}" alt="${esc(p.name)}" ${lazy ? 'loading="lazy"' : ''} decoding="async">` : bottleFor(p);
-
-/* ---------- WhatsApp ---------- */
-const waLink = (text) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
-$$('[data-whatsapp]').forEach((a) => {
-  a.href = waLink('Hola, quiero información sobre sus perfumes.');
-  a.target = '_blank';
-  a.rel = 'noopener';
-});
+initPage();
 
 /* =========================================================
    Próximamente
@@ -73,13 +51,26 @@ function renderHero() {
   const brand = brandName(d.brand);
   $('#heroKicker').innerHTML = ['Próximamente', brand].filter(Boolean).map(esc).join('<i aria-hidden="true">·</i>');
   $('#heroName').textContent = d.name;
-  $('#heroDesc').textContent = d.edition || d.description;
+  $('#heroLead').textContent = d.edition || 'Muy pronto.';
+  $('#heroDesc').textContent = [familyName(d.family), d.gender].filter(Boolean).join(' · ');
+  $('.hero-btn').href = shopUrl();
+
+  // Escenario: el lanzamiento al centro y, a los lados, perfumes de la colección en penumbra.
+  const side = products.slice(0, 4);
+  const sideHTML = (p, cls) => `<span class="lineup-side ${cls}" style="--liq:${esc(p.liquid)}">${visualFor(p)}</span>`;
+  $('#heroLineup').innerHTML = [
+    side[2] && sideHTML(side[2], 'is-far'),
+    side[0] && sideHTML(side[0], 'is-near'),
+    `<button class="hero-bottle" id="heroBottle" type="button"></button>`,
+    side[1] && sideHTML(side[1], 'is-near'),
+    side[3] && sideHTML(side[3], 'is-far'),
+  ]
+    .filter(Boolean)
+    .join('');
 
   const bottle = $('#heroBottle');
   hero.dataset.silhouette = String(d.silhouette !== false);
-  bottle.innerHTML = d.photos?.[0]
-    ? `<img class="hero-photo" src="${esc(d.photos[0])}" alt="" decoding="async" fetchpriority="high">`
-    : bottleFor(d, { fill: 0.7 });
+  bottle.innerHTML = d.photos?.[0] ? `<img class="hero-photo" src="${esc(d.photos[0])}" alt="" decoding="async" fetchpriority="high">` : bottleFor(d, { fill: 0.7 });
   bottle.setAttribute('aria-label', `${d.name}, todavía no disponible`);
   bottle.addEventListener('click', () => {
     bottle.classList.remove('is-wobbling');
@@ -91,8 +82,8 @@ function renderHero() {
   const timer = setInterval(() => tick() || clearInterval(timer), 1000);
   if (NOTIFY_ENABLED) bindNotify(d);
   else $('#notifyForm').remove();
-  // Entrada de la portada. El temporizador es de respaldo: algunos navegadores pausan
-  // requestAnimationFrame y la portada nunca debe quedarse invisible.
+  // El temporizador es de respaldo: algunos navegadores pausan requestAnimationFrame
+  // y la portada nunca debe quedarse invisible.
   const show = () => hero.classList.add('is-in');
   requestAnimationFrame(show);
   setTimeout(show, 120);
@@ -125,7 +116,6 @@ function bindNotify(d) {
   const button = $('button', form);
   const defaultMsg = msg.textContent;
   const launchDate = new Date(d.launch).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
-
   input.addEventListener('input', () => {
     if (form.dataset.state !== 'error') return;
     form.dataset.state = '';
@@ -157,228 +147,76 @@ function bindNotify(d) {
 }
 
 /* =========================================================
-   Colección
+   Destacados: carrusel de tarjetas grandes (solo si el dueño creó alguna con foto)
    ========================================================= */
-const grid = $('#grid');
-let kind = 'all';
-let brandFilter = null;
-
-function cardHTML(p) {
-  const brand = brandName(p.brand);
-  const minis = hasMinis(p);
-  return `
-  <article class="card">
-    <button class="card-stage" data-open="${esc(p.id)}" aria-label="Ver ${esc(p.name)}" style="--liq:${esc(p.liquid)}">
-      ${p.tag ? `<span class="card-tag">${esc(p.tag)}</span>` : ''}
-      ${visualFor(p)}
-    </button>
-    <div class="card-info">
-      ${brand ? `<p class="card-brand">${esc(brand)}</p>` : ''}
-      <h3 class="card-name"><button data-open="${esc(p.id)}">${esc(p.name)}</button></h3>
-      <p class="card-price">desde ${fmt(minPrice(p))}${minis ? '<span>· Mini</span>' : ''}</p>
-    </div>
-  </article>`;
-}
-
-function renderGrid() {
-  const list = products.filter(
-    (p) => (kind === 'all' || (kind === 'minis' ? hasMinis(p) : hasFull(p))) && (!brandFilter || p.brand === brandFilter),
-  );
-  grid.innerHTML = list.map(cardHTML).join('');
-  $('#gridEmpty').hidden = list.length > 0;
-  $('#brandFilter').hidden = !brandFilter;
-  if (brandFilter) $('#brandFilterLabel').textContent = `Mostrando ${brandName(brandFilter)}`;
-  revealCards();
-}
-
-function setKind(next) {
-  kind = next;
-  $$('#tabs [data-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === kind)));
-  swap(renderGrid);
-}
-function setBrand(id) {
-  brandFilter = id;
-  swap(renderGrid);
-}
-// Cambio suave del contenido de la grilla.
-function swap(fn) {
-  if (document.startViewTransition && !reduceMotion) document.startViewTransition(fn);
-  else fn();
-}
-
-$('#tabs').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-kind]');
-  if (b && b.dataset.kind !== kind) setKind(b.dataset.kind);
-});
-$('#brandClear').addEventListener('click', () => setBrand(null));
-$$('[data-jump="minis"]').forEach((a) => a.addEventListener('click', () => setKind('minis')));
-
-// Las tarjetas aparecen una vez al entrar en pantalla.
-const cardObserver = new IntersectionObserver(
-  (entries) => {
-    entries
-      .filter((en) => en.isIntersecting)
-      .forEach((en, i) => {
-        en.target.style.setProperty('--d', `${Math.min(i, 4) * 60}ms`);
-        en.target.classList.add('is-in');
-        cardObserver.unobserve(en.target);
-      });
-  },
-  { rootMargin: '0px 0px -6% 0px' },
-);
-function revealCards() {
-  $$('.card', grid).forEach((c) => (reduceMotion ? c.classList.add('is-in') : cardObserver.observe(c)));
-}
-
-/* ---------- Marcas ---------- */
-const usedBrands = brands
-  .filter((b) => products.some((p) => p.brand === b.id))
-  .sort((a, b) => a.name.localeCompare(b.name, 'es'));
-$('#marcas').hidden = !usedBrands.length;
-$('#brandList').innerHTML = usedBrands.map((b) => `<li><button data-brand="${esc(b.id)}">${esc(b.name)}</button></li>`).join('');
-$('#brandList').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-brand]');
-  if (!b) return;
-  setBrand(b.dataset.brand);
-  $('#coleccion').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
-});
-
-/* =========================================================
-   Detalle del perfume
-   ========================================================= */
-const modal = $('#modal');
-let current = null;
-
-function openModal(id) {
-  const p = productById[id];
-  if (!p) return;
-  current = p;
-  modal.style.setProperty('--liq', p.liquid);
-  $('#modalVisual').innerHTML = visualFor(p, { lazy: false });
-  $('#modalBrand').textContent = brandName(p.brand);
-  $('#modalName').textContent = p.name;
-  $('#modalMeta').textContent = [p.gender, familyName(p.family)].filter(Boolean).join(' · ');
-  $('#modalDesc').textContent = p.description;
-  $('#modalNotes').innerHTML = [
-    ['Al aplicarlo', p.notes?.top],
-    ['Después de un rato', p.notes?.heart],
-    ['Al final del día', p.notes?.base],
-  ]
-    .filter(([, n]) => n?.length)
-    .map(([t, n]) => `<div><dt>${t}</dt><dd>${esc(n.join(', '))}</dd></div>`)
+const slides = showcase.filter((x) => x.visible !== false && x.photo);
+const scSection = $('#destacados');
+if (!slides.length) scSection.remove();
+else {
+  const track = $('#scTrack');
+  const linkOf = (x) =>
+    x.linkType === 'minis'
+      ? shopUrl({ tipo: 'minis' })
+      : x.linkType === 'full'
+        ? shopUrl({ tipo: 'completo' })
+        : x.linkType === 'brand' && x.linkId
+          ? shopUrl({ marca: x.linkId })
+          : null;
+  track.innerHTML = slides
+    .map((x) => {
+      const inner = slideHTML(x);
+      const label = esc(x.word.replace(/\//g, ' '));
+      if (x.linkType === 'product' && x.linkId) return `<li class="sc-slide"><button data-open="${esc(x.linkId)}" aria-label="${label}">${inner}</button></li>`;
+      const href = linkOf(x);
+      return `<li class="sc-slide">${href ? `<a href="${esc(href)}" aria-label="${label}">${inner}</a>` : `<div role="img" aria-label="${label}">${inner}</div>`}</li>`;
+    })
     .join('');
 
-  const sizes = sizesOf(p);
-  const group = (title, list) =>
-    list.length
-      ? `<fieldset><legend>${title}</legend>${list
-          .map(
-            (ml) => `<label class="size"><input type="radio" name="size" value="${ml}"><span><strong>${ml} ml</strong>${fmt(p.prices[ml])}</span></label>`,
-          )
-          .join('')}</fieldset>`
-      : '';
-  $('#modalSizes').innerHTML =
-    group('Mini', sizes.filter((ml) => ml <= MINI_MAX_ML)) + group('Frasco completo', sizes.filter((ml) => ml > MINI_MAX_ML));
-  const radios = $$('input[name="size"]', modal);
-  radios[radios.length - 1].checked = true;
-  updateOrder();
-
-  modal.showModal();
-  document.body.classList.add('is-locked');
-  requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('is-open')));
-}
-
-function updateOrder() {
-  const ml = Number($('input[name="size"]:checked', modal)?.value);
-  const brand = brandName(current.brand);
-  const kindLabel = ml <= MINI_MAX_ML ? 'mini de ' : '';
-  $('#modalOrder').href = waLink(
-    `Hola, quiero pedir ${kindLabel}${current.name}${brand ? ` de ${brand}` : ''} en ${ml} ml (${fmt(current.prices[ml])}). Mi ciudad es: `,
-  );
-}
-$('#modalSizes').addEventListener('change', updateOrder);
-
-function closeModal() {
-  if (!modal.open) return;
-  modal.classList.remove('is-open');
-  document.body.classList.remove('is-locked');
-  setTimeout(() => modal.close(), reduceMotion ? 0 : 220);
-}
-$('#modalClose').addEventListener('click', closeModal);
-modal.addEventListener('cancel', (e) => {
-  e.preventDefault();
-  closeModal();
-});
-modal.addEventListener('click', (e) => {
-  if (e.target === modal) closeModal();
-});
-document.addEventListener('click', (e) => {
-  const open = e.target.closest('[data-open]');
-  if (open) openModal(open.dataset.open);
-});
-
-// En el teléfono el detalle es una hoja que se cierra arrastrando hacia abajo.
-{
-  const handle = $('#sheetHandle');
-  let startY = 0;
-  let startT = 0;
-  let dy = 0;
-  let dragging = false;
-  handle.addEventListener('pointerdown', (e) => {
-    if (dragging) return;
-    dragging = true;
-    startY = e.clientY;
-    startT = performance.now();
-    dy = 0;
-    handle.setPointerCapture(e.pointerId);
-    modal.style.transition = 'none';
-  });
-  handle.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const raw = e.clientY - startY;
-    dy = raw < 0 ? raw * 0.2 : raw;
-    modal.style.transform = `translateY(${dy}px)`;
-  });
-  const end = () => {
-    if (!dragging) return;
-    dragging = false;
-    const velocity = dy / Math.max(1, performance.now() - startT);
-    modal.style.transition = '';
-    modal.style.transform = '';
-    if (dy > 140 || velocity > 0.5) closeModal();
+  // La tarjeta más cercana al centro se ve más grande, como en una vitrina.
+  const items = $$('.sc-slide', track);
+  let raf = 0;
+  const markCenter = () => {
+    raf = 0;
+    const mid = track.getBoundingClientRect().left + track.clientWidth / 2;
+    let best = null;
+    let bestD = Infinity;
+    for (const it of items) {
+      const r = it.getBoundingClientRect();
+      const d = Math.abs(r.left + r.width / 2 - mid);
+      if (d < bestD) [best, bestD] = [it, d];
+    }
+    items.forEach((it) => it.classList.toggle('is-center', it === best));
   };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-}
-
-/* =========================================================
-   Menú del teléfono
-   ========================================================= */
-const menu = $('#menu');
-const menuBtn = $('#menuBtn');
-function setMenu(open) {
-  menuBtn.setAttribute('aria-expanded', String(open));
-  menuBtn.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
-  document.body.classList.toggle('is-locked', open);
-  if (open) {
-    menu.hidden = false;
-    requestAnimationFrame(() => menu.classList.add('is-open'));
-  } else {
-    menu.classList.remove('is-open');
-    setTimeout(() => {
-      if (!menu.classList.contains('is-open')) menu.hidden = true;
-    }, 280);
+  track.addEventListener('scroll', () => (raf ||= requestAnimationFrame(markCenter)), { passive: true });
+  window.addEventListener('resize', markCenter);
+  markCenter();
+  setTimeout(markCenter, 200);
+  // Empieza en la del medio cuando hay varias.
+  if (items.length > 2) {
+    const midItem = items[Math.floor(items.length / 2)];
+    track.scrollLeft = midItem.offsetLeft - (track.clientWidth - midItem.offsetWidth) / 2;
   }
+  const step = (dir) => {
+    const cur = items.findIndex((it) => it.classList.contains('is-center'));
+    const next = items[Math.max(0, Math.min(items.length - 1, cur + dir))];
+    track.scrollTo({ left: next.offsetLeft - (track.clientWidth - next.offsetWidth) / 2, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+  $('#scPrev').addEventListener('click', () => step(-1));
+  $('#scNext').addEventListener('click', () => step(1));
+  $('.sc-nav', scSection).hidden = items.length < 2;
 }
-menuBtn.addEventListener('click', () => setMenu(menuBtn.getAttribute('aria-expanded') !== 'true'));
-menu.addEventListener('click', (e) => {
-  if (e.target.closest('a')) setMenu(false);
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && menu.classList.contains('is-open')) setMenu(false);
-});
 
-/* ---------- Inicio ---------- */
-$('#year').textContent = new Date().getFullYear();
+/* ---------- Marcas: cada una lleva a la Tienda filtrada ---------- */
+$('#marcas .brand-col').hidden = !usedBrands.length;
+$('#brandList').innerHTML = usedBrands
+  .map((b) => {
+    const n = products.filter((p) => p.brand === b.id).length;
+    return `<li><a href="${esc(shopUrl({ marca: b.id }))}"><span><strong>${esc(b.name)}</strong><small>${n} ${n === 1 ? 'perfume' : 'perfumes'}</small></span><i aria-hidden="true">→</i></a></li>`;
+  })
+  .join('');
+
+// Si la portada se abre con #perfume-id (por ejemplo desde un Destacado), se abre su detalle.
+const fromHash = decodeURIComponent(location.hash.slice(1));
+if (fromHash && products.some((p) => p.id === fromHash)) openModal(fromHash);
+
 renderHero();
-renderGrid();

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <title>Tienda · Ánima</title>
+    <meta name="description" content="Catálogo de perfumes originales de las mejores marcas, en frasco completo o en mini. Pide por WhatsApp." />
+    <script>document.documentElement.classList.add('js');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..600&family=Jost:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body data-root="../">
+    <a class="skip" href="#grid">Ir a los perfumes</a>
+
+    <p class="announce">Perfumes 100% originales · Pide por WhatsApp</p>
+
+    <header class="nav" id="nav">
+      <div class="nav-inner">
+        <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span></button>
+        <nav class="nav-links" aria-label="Principal">
+          <a href="../tienda/" class="nav-shop">Tienda</a>
+          <a href="../tienda/?tipo=minis">Minis</a>
+          <a href="../#marcas">Marcas</a>
+        </nav>
+        <a href="../" class="logo" aria-label="Ánima, inicio">Ánima</a>
+        <div class="nav-end">
+          <a href="../#preguntas" class="nav-link-end">Preguntas</a>
+          <a href="#" class="wa-btn" data-whatsapp="general" aria-label="Escríbenos por WhatsApp">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20Z" />
+              <path d="M9.2 9.3c.2 2.4 2.3 4.6 4.9 5l1.2-1.2-1.7-.9-.7.6c-.9-.4-1.6-1.1-2-2l.6-.7-.9-1.7-1.4.9Z" fill="currentColor" stroke="none" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <div class="menu" id="menu" hidden>
+      <nav aria-label="Menú">
+        <a href="../tienda/">Tienda</a>
+        <a href="../tienda/?tipo=minis">Minis</a>
+        <a href="../#marcas">Marcas</a>
+        <a href="../#preguntas">Preguntas</a>
+        <a href="#" data-whatsapp="general">Escríbenos</a>
+      </nav>
+    </div>
+
+    <main class="shop">
+      <nav class="crumbs" aria-label="Ruta">
+        <a href="../">Inicio</a>
+        <span aria-hidden="true">›</span>
+        <span id="crumbHere" aria-current="page">Tienda</span>
+      </nav>
+      <p class="shop-eyebrow">Colección</p>
+      <h1 class="shop-title" id="shopTitle">Tienda</h1>
+
+      <form class="filters" id="filters" aria-label="Filtros">
+        <span class="filters-label">Filtrar</span>
+        <label class="select"><span class="sr-only">Tipo</span>
+          <select name="tipo">
+            <option value="">Mini y completo</option>
+            <option value="minis">Solo minis</option>
+            <option value="completo">Solo frasco completo</option>
+          </select>
+        </label>
+        <label class="select"><span class="sr-only">Marca</span><select name="marca" id="fMarca"><option value="">Todas las marcas</option></select></label>
+        <label class="select"><span class="sr-only">Para</span>
+          <select name="para">
+            <option value="">Para todos</option>
+            <option value="Femenino">Para ella</option>
+            <option value="Masculino">Para él</option>
+            <option value="Unisex">Unisex</option>
+          </select>
+        </label>
+        <label class="select"><span class="sr-only">Familia</span><select name="familia" id="fFamilia"><option value="">Todos los aromas</option></select></label>
+        <label class="select"><span class="sr-only">Precio</span>
+          <select name="precio">
+            <option value="">Cualquier precio</option>
+            <option value="0-100000">Hasta $100.000</option>
+            <option value="100000-200000">$100.000 a $200.000</option>
+            <option value="200000-">Más de $200.000</option>
+          </select>
+        </label>
+        <span class="filters-sort">
+          <span class="filters-label">Ordenar</span>
+          <label class="select"><span class="sr-only">Ordenar por</span>
+            <select name="orden">
+              <option value="">Destacados</option>
+              <option value="precio-asc">Menor precio</option>
+              <option value="precio-desc">Mayor precio</option>
+              <option value="nombre">Nombre (A-Z)</option>
+            </select>
+          </label>
+        </span>
+      </form>
+
+      <div class="shop-bar">
+        <p class="shop-count" id="shopCount" aria-live="polite"></p>
+        <button class="clear-filters" id="clearFilters" type="button" hidden>Quitar filtros</button>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="empty shop-empty" id="gridEmpty" hidden>
+        <p>No hay perfumes con estos filtros.</p>
+        <button class="btn" type="button" id="clearFilters2">Ver todos</button>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <p class="footer-logo">Ánima</p>
+        <nav aria-label="Pie de página">
+          <a href="./">Tienda</a>
+          <a href="../#marcas">Marcas</a>
+          <a href="../#preguntas">Preguntas</a>
+          <a href="#" data-whatsapp="general">WhatsApp</a>
+        </nav>
+        <p class="footer-note">© <span id="year"></span> Ánima. Perfumes originales.</p>
+      </div>
+    </footer>
+
+    <!-- Detalle del perfume -->
+    <dialog class="modal" id="modal" aria-labelledby="modalName">
+      <div class="sheet-handle" id="sheetHandle" aria-hidden="true"><span></span></div>
+      <button class="icon-btn modal-close" id="modalClose" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+      <div class="modal-grid">
+        <div class="modal-visual" id="modalVisual"></div>
+        <div class="modal-copy">
+          <p class="modal-brand" id="modalBrand"></p>
+          <h2 id="modalName"></h2>
+          <p class="modal-meta" id="modalMeta"></p>
+          <p class="modal-desc" id="modalDesc"></p>
+          <dl class="notes" id="modalNotes"></dl>
+          <div class="sizes" id="modalSizes"></div>
+          <a class="btn btn-block" id="modalOrder" href="#" target="_blank" rel="noopener">Pedir por WhatsApp</a>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/shop.js"></script>
+  </body>
+</html>

@@ -126,6 +126,33 @@ export function cleanBrand(input, others) {
   return { name };
 }
 
+// Destacados: tarjeta con palabra grande al fondo, foto del frasco y a dónde lleva al tocarla.
+const LINK_TYPES = new Set(['none', 'minis', 'full', 'brand', 'product']);
+export function cleanSlide(input, existing, { fonts, brands, productIds }) {
+  const word = text(input.word, 'la palabra', { min: 1, max: 28 });
+  const type = oneOf(input.linkType, LINK_TYPES, 'El enlace', 'none');
+  let linkId = null;
+  if (type === 'brand') {
+    if (!brands.some((b) => b.id === input.linkId)) throw new ValidationError('Elige la marca a la que lleva.');
+    linkId = input.linkId;
+  }
+  if (type === 'product') {
+    if (!productIds.has(input.linkId)) throw new ValidationError('Elige el perfume al que lleva.');
+    linkId = input.linkId;
+  }
+  return {
+    ...existing,
+    word,
+    font: oneOf(input.font, new Set(fonts), 'El tipo de letra', existing.font || fonts[0]),
+    textColor: color(input.textColor, existing.textColor || '#1D1B19'),
+    background: color(input.background, existing.background || '#D9D5CF'),
+    linkType: type,
+    linkId,
+    visible: input.visible === undefined ? existing.visible !== false : !!input.visible,
+    photo: existing.photo ?? null,
+  };
+}
+
 export function cleanEmail(v) {
   const email = String(v ?? '').trim().toLowerCase();
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new ValidationError('Escribe un correo válido.');

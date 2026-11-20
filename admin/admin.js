@@ -1,5 +1,7 @@
 import { request, login, logout, sessionStatus, changePassword, ApiError } from './backend.js';
 import { NOTIFY_ENABLED } from '../src/config.js';
+import { slideHTML } from '../src/showcase.js';
+import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 
 // Familias olfativas: vienen del servidor (el dueño las crea y edita en la pestaña Familias).
 let families = [];
@@ -30,6 +32,8 @@ const visualFor = (p) =>
   p.photo ? `<img src="${esc(p.photo)}" alt="">` : noPhoto();
 
 const ICON = {
+  spotlight:
+    '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M8 15.5h8"/><path d="M7 11c1.5-2.5 3.2-2.5 5 0s3.5 2.5 5 0"/></svg>',
   key: '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M7.5 11V8.5a4.5 4.5 0 0 1 9 0V11"/><path d="M12 14.5v2"/><rect x="5" y="11" width="14" height="10" rx="2.5"/></svg>',
   finger:
     '<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.8A7 7 0 0 1 19 11v1.5"/><path d="M5 10.5V12a10 10 0 0 0 1.2 4.8"/><path d="M9 11a3 3 0 0 1 6 0v2a12 12 0 0 1-1.4 5.6"/><path d="M12 11v2.5a15 15 0 0 1-2.5 7"/><path d="M17.5 15.5a17 17 0 0 1-1 3.6"/></svg>',
@@ -167,6 +171,7 @@ function renderLogin() {
 const VIEWS = {
   lanzamiento: { label: 'Lanzamiento', icon: ICON.launch, render: renderLaunch },
   productos: { label: 'Productos', icon: ICON.bottle, render: renderProducts },
+  destacados: { label: 'Destacados', icon: ICON.spotlight, render: renderShowcase },
   familias: { label: 'Catálogo', icon: ICON.drop, render: renderFamilies },
   ...(NOTIFY_ENABLED ? { avisos: { label: 'Avisos', icon: ICON.mail, render: renderSubscribers } } : {}),
   dispositivos: { label: 'Acceso', icon: ICON.device, render: renderDevices },
@@ -924,6 +929,257 @@ function openProductEditor(product, onChange) {
     if (e.target === sheet || e.target.closest('[data-close]')) close();
   });
 
+  sheet.showModal();
+  requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('is-open')));
+}
+
+/* =========================================================
+   Destacados
+   ========================================================= */
+const SC_BG = ['#D9D5CF', '#E6E1DA', '#CFC9C1', '#D7D2CB', '#E8DFD3', '#C9CFD3', '#1E1C1A', '#2A2622'];
+const SC_TEXT = ['#1D1B19', '#3A332C', '#F4EFE8', '#8A6430', '#FFFFFF'];
+const scPlaceholder = '<span class="sc-empty">' + ICON.camera + '<span>Sube la foto del frasco</span></span>';
+
+async function renderShowcase(view) {
+  let list = await api('/api/admin/showcase');
+  view.innerHTML = `
+  <div class="view">
+    <div class="view-head">
+      <div><h1>Destacados</h1><p>Tarjetas grandes con una palabra de fondo y un frasco al frente. Se muestran en la tienda debajo de la portada.</p></div>
+      <button class="btn btn-primary" id="newSlide">${ICON.plus}Nuevo</button>
+    </div>
+    <div class="notice">${ICON.info}<span>Solo aparecen en la tienda las tarjetas <strong>visibles y con foto</strong>. Si no hay ninguna, la sección no se muestra.</span></div>
+    <div class="sc-list" id="scList"></div>
+  </div>`;
+
+  function draw() {
+    $('#scList').innerHTML = list.length
+      ? list
+          .map(
+            (x, i) => `
+        <div class="sc-row${x.visible === false || !x.photo ? ' is-off' : ''}">
+          <button class="sc-thumb" data-edit="${esc(x.id)}" aria-label="Editar ${esc(x.word)}">${slideHTML(x, { placeholder: scPlaceholder })}</button>
+          <div class="sc-row-info">
+            <strong>${esc(x.word)}</strong>
+            <span>${esc(SHOWCASE_FONTS[x.font]?.label || '')}</span>
+            ${!x.photo ? '<span class="chip chip-gold">Sin foto</span>' : x.visible === false ? '<span class="chip chip-muted">Oculto</span>' : '<span class="chip chip-ok">En la tienda</span>'}
+          </div>
+          <div class="frow-order">
+            <button class="icon-btn" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir">${ICON.up}</button>
+            <button class="icon-btn" data-move="${i}" data-dir="1" ${i === list.length - 1 ? 'disabled' : ''} aria-label="Bajar">${ICON.down}</button>
+          </div>
+        </div>`,
+          )
+          .join('')
+      : '<div class="empty"><strong>Todavía no hay destacados</strong>Crea el primero con el botón Nuevo. Mientras no haya ninguno, esta sección no aparece en la tienda.</div>';
+  }
+  draw();
+
+  const onChange = async () => {
+    list = await api('/api/admin/showcase');
+    draw();
+  };
+  $('#newSlide').addEventListener('click', () => openSlideEditor(null, onChange));
+  $('#scList').addEventListener('click', async (e) => {
+    const edit = e.target.closest('[data-edit]');
+    if (edit) return openSlideEditor(list.find((x) => x.id === edit.dataset.edit), onChange);
+    const move = e.target.closest('[data-move]');
+    if (!move) return;
+    const i = Number(move.dataset.move);
+    const j = i + Number(move.dataset.dir);
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    const prev = list;
+    list = next;
+    draw();
+    try {
+      await api('/api/admin/showcase/order', { method: 'PUT', body: { ids: next.map((x) => x.id) } });
+    } catch (err) {
+      list = prev;
+      draw();
+      toast(err.message, true);
+    }
+  });
+}
+
+async function openSlideEditor(slide, onChange) {
+  const isNew = !slide;
+  const [allProducts] = await Promise.all([api('/api/admin/products'), loadBrands()]);
+  const x = slide || { word: 'Nuevos', font: DEFAULT_FONT, textColor: '#1D1B19', background: '#D9D5CF', linkType: 'none', linkId: null, visible: true, photo: null };
+  let pendingFile = null;
+  let photo = x.photo;
+  loadFonts(Object.keys(SHOWCASE_FONTS)); // para que cada opción se vea con su letra
+  const linkValue = x.linkType === 'brand' || x.linkType === 'product' ? `${x.linkType}:${x.linkId}` : x.linkType || 'none';
+  const opt = (v, label) => `<option value="${esc(v)}" ${v === linkValue ? 'selected' : ''}>${esc(label)}</option>`;
+
+  const sheet = document.createElement('dialog');
+  sheet.className = 'sheet';
+  sheet.setAttribute('aria-labelledby', 'scTitle');
+  sheet.innerHTML = `
+    <div class="sheet-head">
+      <h2 id="scTitle">${isNew ? 'Nuevo destacado' : esc(x.word)}</h2>
+      <button class="icon-btn" data-close aria-label="Cerrar">${ICON.close}</button>
+    </div>
+    <form class="sheet-body" id="scForm" novalidate>
+      <div class="sc-preview" id="scPreview"></div>
+      <div class="btns sc-photo-btns">
+        <label class="btn btn-primary btn-sm file-btn"><span id="scPhotoLabel"></span><input type="file" accept="image/*" id="scPhoto" aria-label="Elegir foto"></label>
+        <button type="button" class="btn btn-ghost btn-sm" id="scRemovePhoto">Quitar foto</button>
+      </div>
+      <p class="hint" style="margin:6px 0 18px">Se ve mejor una foto del frasco <strong>sin fondo</strong> (PNG).</p>
+      <div class="fields">
+        <div class="field full">
+          <label for="scWord">Palabra de fondo</label>
+          <input id="scWord" name="word" value="${esc(x.word)}" maxlength="28" required>
+          <span class="hint">Corta y grande queda mejor. Para dos líneas usa una barra: <strong>nuevos / ingresos</strong></span>
+        </div>
+        <div class="field full">
+          <span class="label">Tipo de letra</span>
+          <div class="font-picks" role="radiogroup" aria-label="Tipo de letra">
+            ${Object.entries(SHOWCASE_FONTS)
+              .map(
+                ([id, ft]) => `<label class="font-pick"><input type="radio" name="font" value="${id}" ${id === (x.font || DEFAULT_FONT) ? 'checked' : ''}><span style="font-family:${esc(ft.family)}">Aa</span><small>${esc(ft.label)}</small></label>`,
+              )
+              .join('')}
+          </div>
+        </div>
+      </div>
+      <div id="scColors" class="color-pair">
+        ${colorPicker({ name: 'background', value: x.background, label: 'Color de fondo', hint: 'Grises cálidos dan el efecto de estudio con luz de ventana.', swatches: SC_BG })}
+        ${colorPicker({ name: 'textColor', value: x.textColor, label: 'Color de la palabra', swatches: SC_TEXT })}
+      </div>
+      <div class="fields">
+        <div class="field full">
+          <label for="scLink">Al tocar la tarjeta, lleva a…</label>
+          <select id="scLink" name="link">
+            ${opt('none', 'Nada (solo decorativa)')}
+            ${opt('minis', 'Los minis')}
+            ${opt('full', 'Los frascos completos')}
+            <optgroup label="Una marca">${[...brands].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((b) => opt(`brand:${b.id}`, b.name)).join('')}</optgroup>
+            <optgroup label="Un perfume">${allProducts.map((p) => opt(`product:${p.id}`, p.name)).join('')}</optgroup>
+          </select>
+        </div>
+      </div>
+      <label class="switch">
+        <span class="switch-text"><strong>Visible en la tienda</strong><span>Si lo apagas, se guarda pero no se muestra.</span></span>
+        <input type="checkbox" name="visible" ${x.visible !== false ? 'checked' : ''}><span class="switch-track"></span>
+      </label>
+    </form>
+    <div class="sheet-foot">
+      ${isNew ? '' : `<button class="btn btn-danger" id="scDelete" aria-label="Eliminar destacado">${ICON.trash}</button>`}
+      <button class="btn btn-primary" id="scSave">${isNew ? 'Crear destacado' : 'Guardar cambios'}</button>
+    </div>`;
+  document.body.appendChild(sheet);
+  const form = $('#scForm', sheet);
+
+  const read = () => {
+    const d = readForm(form);
+    const [linkType, linkId = null] = String(d.link || 'none').split(':');
+    return { word: d.word, font: d.font, background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
+  };
+  let pendingUrl = null;
+  function draw() {
+    const d = read();
+    const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : photo;
+    $('#scPreview', sheet).innerHTML = slideHTML({ ...d, word: d.word || ' ', photo: src }, { placeholder: scPlaceholder });
+    $('#scPhotoLabel', sheet).textContent = src ? 'Cambiar foto' : 'Subir foto';
+    $('#scRemovePhoto', sheet).hidden = !src;
+  }
+  draw();
+  syncSwatches(sheet);
+  fillSuggestions($('#scColors', sheet), photo);
+  form.addEventListener('input', draw);
+  form.addEventListener('change', draw);
+  const baseline = JSON.stringify(read());
+  const dirty = () => pendingFile !== null || JSON.stringify(read()) !== baseline;
+
+  $('#scPhoto', sheet).addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (isNew) {
+      pendingFile = file;
+      pendingUrl = null;
+      draw();
+      return;
+    }
+    await withLoading(e.target.closest('.file-btn'), async () => {
+      const fd = new FormData();
+      fd.append('photo', file);
+      try {
+        photo = (await api(`/api/admin/showcase/${encodeURIComponent(x.id)}/photo`, { method: 'POST', form: fd })).photo;
+        draw();
+        fillSuggestions($('#scColors', sheet), photo);
+        onChange();
+        toast('Foto actualizada');
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+  $('#scRemovePhoto', sheet).addEventListener('click', async () => {
+    if (pendingFile) {
+      pendingFile = null;
+      return draw();
+    }
+    if (!(await confirmDialog({ title: '¿Quitar la foto?', text: 'Sin foto, esta tarjeta no aparece en la tienda.', ok: 'Quitar', danger: true }))) return;
+    try {
+      await api(`/api/admin/showcase/${encodeURIComponent(x.id)}/photo`, { method: 'DELETE', body: {} });
+      photo = null;
+      draw();
+      onChange();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  $('#scSave', sheet).addEventListener('click', (e) =>
+    withLoading(e.currentTarget, async () => {
+      try {
+        let saved = isNew
+          ? await api('/api/admin/showcase', { method: 'POST', body: read() })
+          : await api(`/api/admin/showcase/${encodeURIComponent(x.id)}`, { method: 'PUT', body: read() });
+        if (pendingFile) {
+          const fd = new FormData();
+          fd.append('photo', pendingFile);
+          saved = await api(`/api/admin/showcase/${encodeURIComponent(saved.id)}/photo`, { method: 'POST', form: fd });
+          pendingFile = null;
+        }
+        await onChange();
+        toast(saved.photo ? 'Guardado. Ya está en la tienda.' : 'Guardado. Sube una foto para que aparezca en la tienda.');
+        close(true);
+      } catch (err) {
+        toast(err.message, true);
+      }
+    }),
+  );
+  $('#scDelete', sheet)?.addEventListener('click', async () => {
+    if (!(await confirmDialog({ title: `¿Eliminar "${x.word}"?`, text: 'Se borra la tarjeta y su foto.', ok: 'Eliminar', danger: true }))) return;
+    try {
+      await api(`/api/admin/showcase/${encodeURIComponent(x.id)}`, { method: 'DELETE', body: {} });
+      await onChange();
+      toast('Destacado eliminado');
+      close(true);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+
+  async function close(force = false) {
+    if (!force && dirty() && !(await confirmDialog({ title: '¿Cerrar sin guardar?', text: 'Los cambios de esta tarjeta se perderán.', ok: 'Cerrar' }))) return;
+    sheet.classList.remove('is-open');
+    setTimeout(() => {
+      sheet.close();
+      sheet.remove();
+    }, 300);
+  }
+  sheet.addEventListener('cancel', (e) => {
+    e.preventDefault();
+    close();
+  });
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet || e.target.closest('[data-close]')) close();
+  });
   sheet.showModal();
   requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('is-open')));
 }
