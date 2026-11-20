@@ -68,21 +68,42 @@ export function cardHTML(p) {
   </article>`;
 }
 
-// Las tarjetas aparecen una vez al entrar en pantalla.
+// Las tarjetas aparecen al entrar en pantalla, bajando o subiendo, desde el lado por donde llegan.
 const cardObserver = new IntersectionObserver(
   (entries) => {
-    entries
-      .filter((en) => en.isIntersecting)
-      .forEach((en, i) => {
-        en.target.style.setProperty('--d', `${Math.min(i, 4) * 60}ms`);
+    let n = 0;
+    for (const en of entries) {
+      if (en.isIntersecting) {
+        en.target.style.setProperty('--d', `${Math.min(n++, 4) * 70}ms`);
         en.target.classList.add('is-in');
-        cardObserver.unobserve(en.target);
-      });
+      } else {
+        en.target.dataset.from = en.boundingClientRect.top < 0 ? 'top' : 'bottom';
+        en.target.classList.remove('is-in');
+      }
+    }
   },
-  { rootMargin: '0px 0px -6% 0px' },
+  { rootMargin: '-4% 0px -6% 0px' },
 );
 export function revealCards(root) {
   $$('.card', root).forEach((c) => (reduceMotion ? c.classList.add('is-in') : cardObserver.observe(c)));
+}
+
+// Inclinación 3D suave de las fotos de las tarjetas siguiendo el mouse.
+if (!reduceMotion && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  document.addEventListener('pointermove', (e) => {
+    const stage = e.target.closest?.('.card-stage');
+    if (!stage) return;
+    const r = stage.getBoundingClientRect();
+    stage.style.setProperty('--tx', ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
+    stage.style.setProperty('--ty', ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
+  });
+  document.addEventListener('pointerout', (e) => {
+    const stage = e.target.closest?.('.card-stage');
+    if (stage && !stage.contains(e.relatedTarget)) {
+      stage.style.setProperty('--tx', 0);
+      stage.style.setProperty('--ty', 0);
+    }
+  });
 }
 
 // Cambio suave del contenido (filtros, pestañas).
@@ -230,17 +251,21 @@ function bindMobileMenu() {
 const REVEAL = '.title, .eyebrow, .about-title, .about p, .about .btn, .brand-col-title, .faq-head p, .shop-eyebrow, .shop-title, .see-all';
 const STAGGER = '.perks-list, .minis-steps, .brand-list, .faq-list, .filters';
 
+// Se repiten cada vez que la parte entra en pantalla: bajando llega desde abajo, subiendo desde arriba.
 const revealObserver = new IntersectionObserver(
   (entries) => {
     for (const en of entries) {
-      if (!en.isIntersecting) continue;
-      // Los hijos se numeran al aparecer (algunas listas se llenan después de cargar).
-      [...en.target.children].forEach((c, i) => c.style.setProperty('--i', i));
-      en.target.classList.add('is-in');
-      revealObserver.unobserve(en.target);
+      if (en.isIntersecting) {
+        // Los hijos se numeran al aparecer (algunas listas se llenan después de cargar).
+        [...en.target.children].forEach((c, i) => c.style.setProperty('--i', i));
+        en.target.classList.add('is-in');
+      } else {
+        en.target.dataset.from = en.boundingClientRect.top < 0 ? 'top' : 'bottom';
+        en.target.classList.remove('is-in');
+      }
     }
   },
-  { rootMargin: '0px 0px -10% 0px', threshold: 0.12 },
+  { rootMargin: '-6% 0px -8% 0px', threshold: 0.08 },
 );
 
 export function watchReveals(root = document) {

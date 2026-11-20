@@ -85,6 +85,7 @@ function renderHero() {
     bottle.classList.add('is-wobbling');
   });
 
+  bindHeroDepth();
   tick();
   const timer = setInterval(() => tick() || clearInterval(timer), 1000);
   if (NOTIFY_ENABLED) bindNotify(d);
@@ -94,6 +95,43 @@ function renderHero() {
   const show = () => hero.classList.add('is-in');
   requestAnimationFrame(show);
   setTimeout(show, 120);
+}
+
+// Profundidad de la portada: el frasco gira apenas siguiendo el mouse (3D) y, al bajar,
+// el escenario se aleja más lento que el texto. Todo con transform/opacity para que sea fluido.
+function bindHeroDepth() {
+  if (reduceMotion) return;
+  const stage = $('.hero-stage');
+  const copy = $('.hero-copy');
+  let raf = 0;
+  let mx = 0;
+  let my = 0;
+  const apply = () => {
+    raf = 0;
+    const y = Math.min(window.scrollY, innerHeight);
+    const p = y / innerHeight;
+    stage.style.setProperty('--sy', `${(y * 0.18).toFixed(1)}px`);
+    stage.style.setProperty('--sc', (1 - p * 0.06).toFixed(3));
+    copy.style.setProperty('--cy', `${(y * 0.32).toFixed(1)}px`);
+    copy.style.setProperty('--co', (1 - p * 1.1).toFixed(3));
+    hero.style.setProperty('--rx', `${(-my * 7).toFixed(2)}deg`);
+    hero.style.setProperty('--ry', `${(mx * 12).toFixed(2)}deg`);
+  };
+  const queue = () => (raf ||= requestAnimationFrame(apply));
+  window.addEventListener('scroll', queue, { passive: true });
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    hero.addEventListener('pointermove', (e) => {
+      const r = hero.getBoundingClientRect();
+      mx = (e.clientX - r.left) / r.width - 0.5;
+      my = (e.clientY - r.top) / r.height - 0.5;
+      queue();
+    });
+    hero.addEventListener('pointerleave', () => {
+      mx = my = 0;
+      queue();
+    });
+  }
+  apply();
 }
 
 // Devuelve false cuando ya llegó la fecha (para detener el reloj).
@@ -198,7 +236,12 @@ else {
       const d = Math.abs(r.left + r.width / 2 - mid);
       if (d < bestD) [best, bestD] = [it, d];
     }
-    items.forEach((it) => it.classList.toggle('is-center', it === best));
+    const ci = items.indexOf(best);
+    items.forEach((it, i) => {
+      it.classList.toggle('is-center', i === ci);
+      it.classList.toggle('is-left', i < ci);
+      it.classList.toggle('is-right', i > ci);
+    });
   };
   track.addEventListener('scroll', () => (raf ||= requestAnimationFrame(markCenter)), { passive: true });
   window.addEventListener('resize', markCenter);

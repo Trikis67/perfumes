@@ -1940,3 +1940,144 @@ button {
     }
   }
 }
+
+/* =========================================================
+   Movimiento 2: ida y vuelta al bajar/subir y 3D suave
+   ========================================================= */
+@media (prefers-reduced-motion: no-preference) {
+  /* Si la parte salió por arriba, al volver baja desde arriba */
+  .rv[data-from='top']:not(.is-in) {
+    transform: translateY(-22px);
+  }
+  .rv[data-from='top']:not(.is-in) .rv-in {
+    transform: translateY(-0.4em);
+    clip-path: inset(100% 0 0 0);
+  }
+
+  /* Listas: cada elemento entra girando un poco desde atrás (3D) */
+  .rv-stagger {
+    perspective: 900px;
+  }
+  .rv-stagger > * {
+    transform: rotateX(22deg) translateY(30px);
+    transform-origin: 50% 100%;
+    transition: opacity 700ms ease calc(var(--i, 0) * 85ms), transform 1000ms var(--ease) calc(var(--i, 0) * 85ms);
+  }
+  .rv-stagger[data-from='top']:not(.is-in) > * {
+    transform: rotateX(-22deg) translateY(-30px);
+    transform-origin: 50% 0;
+  }
+  .rv-stagger.is-in > * {
+    transform: none;
+  }
+  /* Los beneficios giran como una tarjeta que se levanta */
+  .perks-list.rv-stagger > * {
+    transform: rotateY(-28deg) translateY(18px) scale(0.94);
+    transform-origin: 0 50%;
+  }
+  .perks-list.rv-stagger.is-in > * {
+    transform: none;
+  }
+
+  /* ---------- Tarjetas de la Tienda: entran inclinadas y se enderezan ---------- */
+  .grid {
+    perspective: 1400px;
+  }
+  .js .card {
+    transform: rotateX(16deg) translateY(46px) scale(0.96);
+    transform-origin: 50% 100%;
+    transition: opacity 700ms ease var(--d, 0ms), transform 1100ms var(--ease) var(--d, 0ms);
+  }
+  .js .card[data-from='top']:not(.is-in) {
+    transform: rotateX(-16deg) translateY(-46px) scale(0.96);
+    transform-origin: 50% 0;
+  }
+  .js .card.is-in {
+    transform: none;
+  }
+  /* Con mouse, la foto se inclina hacia donde apunta (3D, máximo unos 8 grados) */
+  .card-stage {
+    --tx: 0;
+    --ty: 0;
+    transform: perspective(800px) rotateY(calc(var(--tx) * 14deg)) rotateX(calc(var(--ty) * -12deg));
+    transition: transform 450ms var(--ease), box-shadow 500ms ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-stage:hover {
+      transform: perspective(800px) rotateY(calc(var(--tx) * 14deg)) rotateX(calc(var(--ty) * -12deg)) translateY(-4px);
+      transition: transform 120ms linear, box-shadow 500ms ease;
+    }
+  }
+
+  /* ---------- Portada: frasco en 3D y profundidad al bajar ---------- */
+  .hero-lineup {
+    perspective: 1000px;
+  }
+  .hero-bottle > :is(.bottle, .hero-photo) {
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 600ms var(--ease);
+  }
+  .lineup-side > * {
+    transform: rotateY(calc(var(--ry, 0deg) * 0.6));
+    transition: transform 700ms var(--ease);
+  }
+  .hero-stage {
+    translate: 0 var(--sy, 0);
+    scale: var(--sc, 1);
+  }
+  .hero-copy {
+    translate: 0 var(--cy, 0);
+    opacity: var(--co, 1);
+  }
+
+  /* ---------- Destacados: vitrina giratoria en 3D ---------- */
+  .sc-track {
+    perspective: 1300px;
+  }
+  .sc-slide {
+    transition: transform 700ms var(--ease), opacity 500ms ease, filter 500ms ease;
+  }
+  .sc-slide.is-left {
+    transform: rotateY(18deg) scale(0.86);
+    transform-origin: 100% 50%;
+    filter: brightness(0.92);
+  }
+  .sc-slide.is-right {
+    transform: rotateY(-18deg) scale(0.86);
+    transform-origin: 0 50%;
+    filter: brightness(0.92);
+  }
+  .sc-slide.is-center {
+    transform: translateZ(0) scale(1);
+  }
+  /* La vitrina completa entra subiendo */
+  .showcase {
+    animation: rise-in 1200ms var(--ease) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(60px) scale(0.97);
+    }
+  }
+
+  /* ---------- Secciones con fondo: el fondo se mueve un poco más lento (profundidad) ---------- */
+  .minis {
+    background-attachment: scroll;
+    animation: tint-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+  @keyframes tint-in {
+    from {
+      background-color: #f7f3ec;
+    }
+  }
+  .footer-inner {
+    animation: rise-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 80%;
+  }
+}
