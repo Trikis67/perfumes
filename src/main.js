@@ -14,7 +14,6 @@ import {
   brandName,
   familyName,
   bottleFor,
-  visualFor,
   openModal,
   shopUrl,
   initPage,
@@ -55,9 +54,10 @@ function renderHero() {
   $('#heroDesc').textContent = [familyName(d.family), d.gender].filter(Boolean).join(' · ');
   $('.hero-btn').href = shopUrl();
 
-  // Escenario: el lanzamiento al centro y, a los lados, perfumes de la colección en penumbra.
-  const side = products.slice(0, 4);
-  const sideHTML = (p, cls) => `<span class="lineup-side ${cls}" style="--liq:${esc(p.liquid)}">${visualFor(p)}</span>`;
+  // Escenario: solo el Próximamente. La foto principal al centro y, si el dueño subió más fotos
+  // del lanzamiento, se acomodan a los lados.
+  const side = (d.photos || []).slice(1, 5);
+  const sideHTML = (src, cls) => `<span class="lineup-side ${cls}"><img class="product-photo" src="${esc(src)}" alt="" decoding="async"></span>`;
   $('#heroLineup').innerHTML = [
     side[2] && sideHTML(side[2], 'is-far'),
     side[0] && sideHTML(side[0], 'is-near'),
