@@ -129,7 +129,7 @@ export function cleanBrand(input, others) {
 // Destacados: tarjeta con palabra grande al fondo, foto del frasco y a dónde lleva al tocarla.
 const LINK_TYPES = new Set(['none', 'minis', 'full', 'brand', 'product']);
 export function cleanSlide(input, existing, { fonts, brands, productIds }) {
-  const word = text(input.word, 'la palabra', { min: 1, max: 28 });
+  const word = text(input.word, 'la palabra', { min: 1, max: 40 });
   const type = oneOf(input.linkType, LINK_TYPES, 'El enlace', 'none');
   let linkId = null;
   if (type === 'brand') {

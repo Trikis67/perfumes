@@ -11,15 +11,14 @@ export const wordLines = (word) =>
     .split('/')
     .map((l) => l.trim())
     .filter(Boolean)
-    .slice(0, 2);
+    .slice(0, 4);
 
 export function slideHTML(slide, { placeholder = '' } = {}) {
   const font = SHOWCASE_FONTS[slide.font] || SHOWCASE_FONTS[DEFAULT_FONT];
   const lines = wordLines(slide.word);
-  const len = Math.max(4, ...lines.map((l) => l.length));
   loadFonts([slide.font || DEFAULT_FONT]);
   return `
-    <span class="sc-card" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)};--len:${len};--lines:${lines.length || 1}">
+    <span class="sc-card" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)}">
       <span class="sc-light" aria-hidden="true"></span>
       <span class="sc-word" aria-hidden="true">${lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span>
       ${slide.photo ? `<img class="sc-photo" src="${esc(slide.photo)}" alt="" loading="lazy" decoding="async">` : placeholder}

@@ -368,6 +368,7 @@ function readForm(form) {
   const out = { notes: {} };
   for (const el of form.elements) {
     if (!el.name) continue;
+    if (el.type === 'radio' && !el.checked) continue; // en un grupo de opciones solo vale la marcada
     const v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.name.startsWith('notes.')) out.notes[el.name.slice(6)] = v.split(',').map((s) => s.trim()).filter(Boolean);
     else if (el.name.startsWith('prices.')) (out.prices ||= {})[el.name.slice(7)] = v === '' ? '' : Number(String(v).replace(/\D/g, ''));
@@ -1030,8 +1031,8 @@ async function openSlideEditor(slide, onChange) {
       <div class="fields">
         <div class="field full">
           <label for="scWord">Palabra de fondo</label>
-          <input id="scWord" name="word" value="${esc(x.word)}" maxlength="28" required>
-          <span class="hint">Corta y grande queda mejor. Para dos líneas usa una barra: <strong>nuevos / ingresos</strong></span>
+          <input id="scWord" name="word" value="${esc(x.word)}" maxlength="40" required>
+          <span class="hint">Se escribe grande; si es larga sigue en la línea de abajo, detrás del frasco. Para cortar la línea donde quieras usa una barra: <strong>nuevos / ingresos</strong></span>
         </div>
         <div class="field full">
           <span class="label">Tipo de letra</span>
@@ -1071,6 +1072,7 @@ async function openSlideEditor(slide, onChange) {
     </div>`;
   document.body.appendChild(sheet);
   const form = $('#scForm', sheet);
+  form.addEventListener('submit', (e) => e.preventDefault()); // Enter no debe recargar la página
 
   const read = () => {
     const d = readForm(form);

@@ -29,26 +29,31 @@
   mix-blend-mode: soft-light;
   opacity: 0.9;
 }
-/* Palabra gigante detrás del frasco */
+/* Palabra gigante detrás del frasco. No se achica: si es larga baja a la siguiente línea
+   y las líneas se apilan; lo que sobra por los lados se corta, como en un afiche. */
 .sc-word {
   position: absolute;
   z-index: 1;
   left: 50%;
-  top: 9%;
+  top: 8%;
   transform: translateX(-50%);
   display: grid;
   justify-items: center;
-  width: 112%;
+  width: 150%;
+  max-height: 84%;
+  overflow: hidden;
   color: var(--fg);
   font-family: var(--font);
-  font-size: min(36cqw, calc(178cqw / var(--len)));
-  line-height: 0.8;
+  font-size: 27cqw;
+  line-height: 0.86;
   letter-spacing: -0.035em;
-  white-space: nowrap;
   text-align: center;
+  overflow-wrap: normal;
 }
-.sc-word span + span {
-  margin-top: 0.02em;
+.sc-word span {
+  display: block;
+  max-width: 100%;
+  text-wrap: balance;
 }
 /* El frasco, al frente, apoyado en el piso con su reflejo */
 .sc-photo {
