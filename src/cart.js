@@ -1,6 +1,7 @@
 // Carrito: se guarda en el navegador del cliente y al final el pedido completo se envía por WhatsApp,
 // con la foto de cada producto en el carrito y el enlace a su foto en el mensaje.
 import { DESTINOS, ZONAS } from './guatemala.js';
+import { STORE_NAME as storeName } from './data.js';
 
 const KEY = 'anima-cart';
 const SHIP_KEY = 'anima-entrega'; // datos de entrega: se recuerdan en el navegador del cliente para su próxima compra
@@ -222,31 +223,46 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
   }
 
   // Mensaje de WhatsApp con todo el pedido y el enlace a la foto de cada producto.
+  // Mensaje de WhatsApp: ordenado y fácil de leer (WhatsApp muestra en negrita lo que va entre *asteriscos*).
   function message() {
     const rows = lines.map((l, i) => {
       const p = productById[l.id];
       const brand = brandName(p.brand);
-      const photos = isSet(p) ? p.items.map((it) => it.photo).filter(Boolean) : p.photo ? [p.photo] : [];
+      const unit = priceOf(l);
       return [
-        `${i + 1}. ${p.name}${brand ? ` (${brand})` : ''} · ${sizeLabel(p, l.ml)} × ${l.qty} = ${fmt(round2(priceOf(l) * l.qty))}`,
-        isSet(p) ? `   Incluye: ${p.items.map((it) => `${it.name} ${it.ml} ml`).join(', ')}` : null,
-        ...photos.map((u) => `   Foto: ${u}`),
+        `*${i + 1}. ${p.name}*${brand ? ` · ${brand}` : ''}`,
+        `   ${sizeLabel(p, l.ml)}`,
+        isSet(p) ? `   Incluye: ${p.items.map((it) => `${it.name} (${it.ml} ml)`).join(', ')}` : null,
+        `   ${l.qty} × ${fmt(unit)} = *${fmt(round2(unit * l.qty))}*`,
       ]
         .filter(Boolean)
         .join('\n');
     });
     const s = (k) => String(ship[k] || '').trim();
-    const entrega = [
-      `Nombre: ${s('nombre')}`,
-      `Departamento: ${s('departamento')}`,
-      `Municipio: ${s('municipio')}`,
-      s('zona') ? `Zona: ${s('zona')}` : null,
-      `Dirección: ${s('direccion')}`,
-      s('notas') ? `Notas: ${s('notas')}` : null,
+    const lugar = [s('zona'), s('municipio'), s('departamento')].filter(Boolean).join(', ');
+    const n = count();
+    return [
+      `🛍️ *NUEVO PEDIDO · ${storeName.toUpperCase()}*`,
+      '',
+      'Hola, quiero hacer este pedido:',
+      '',
+      rows.join('\n\n'),
+      '',
+      '━━━━━━━━━━━━',
+      `*TOTAL: ${fmt(total())}*`,
+      `${n} ${n === 1 ? 'producto' : 'productos'} · ✅ Incluye Shipping Protection`,
+      '━━━━━━━━━━━━',
+      '',
+      '📦 *DATOS DE ENTREGA*',
+      `👤 ${s('nombre')}`,
+      `📍 ${s('direccion')}`,
+      `     ${lugar}`,
+      s('notas') ? `📝 ${s('notas')}` : null,
+      '',
+      '¿Me confirman disponibilidad, costo de envío y forma de pago? ¡Gracias!',
     ]
-      .filter(Boolean)
+      .filter((x) => x !== null)
       .join('\n');
-    return `Hola, quiero hacer este pedido:\n\n${rows.join('\n\n')}\n\nTotal: ${fmt(total())}\nIncluye Shipping Protection.\n\nDATOS DE ENTREGA\n${entrega}`;
   }
 
   function open() {

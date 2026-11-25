@@ -1,6 +1,6 @@
 // Piezas compartidas por la portada y la página Tienda: catálogo, tarjetas, detalle del perfume,
 // menú del teléfono y enlaces de WhatsApp.
-import { products as seedProducts, families as seedFamilies, brands as seedBrands, upcoming as seedUpcoming, WHATSAPP_NUMBER } from './data.js';
+import { products as seedProducts, families as seedFamilies, brands as seedBrands, upcoming as seedUpcoming, WHATSAPP_NUMBER, STORE_NAME } from './data.js';
 import { bottleSVG } from './bottle.js';
 import { loadCatalog } from './api.js';
 import { isSet, setVisualHTML } from './setvisual.js';
@@ -261,15 +261,27 @@ function updateOrder() {
     $('#modalOrder').href = waLink(`Hola, ¿cuándo vuelve ${current.name}${of}?`);
     return;
   }
-  const n = qty > 1 ? `${qty} × ` : '';
-  const total = fmt(Math.round(current.prices[ml] * qty * 100) / 100);
-  if (isSet(current)) {
-    const list = current.items.map((it) => `${it.name} ${it.ml} ml`).join(', ');
-    $('#modalOrder').href = waLink(`Hola, quiero pedir ${n}el set ${current.name}${of} (${list}) por ${total}, con Shipping Protection. Mi ciudad es: `);
-    return;
-  }
-  const kindLabel = ml <= MINI_MAX_ML ? 'decant de ' : '';
-  $('#modalOrder').href = waLink(`Hola, quiero pedir ${n}${kindLabel}${current.name}${of} en ${ml} ml (${total}), con Shipping Protection. Mi ciudad es: `);
+  const unit = current.prices[ml];
+  const total = fmt(Math.round(unit * qty * 100) / 100);
+  const size = isSet(current) ? `Set de ${current.items.length}` : `${ml} ml${ml <= MINI_MAX_ML ? ' · Decant' : ''}`;
+  $('#modalOrder').href = waLink(
+    [
+      `🛍️ *PEDIDO · ${STORE_NAME.toUpperCase()}*`,
+      '',
+      'Hola, quiero pedir:',
+      '',
+      `*${current.name}*${brand ? ` · ${brand}` : ''}`,
+      `   ${size}`,
+      isSet(current) ? `   Incluye: ${current.items.map((it) => `${it.name} (${it.ml} ml)`).join(', ')}` : null,
+      `   ${qty} × ${fmt(unit)} = *${total}*`,
+      '',
+      '✅ Incluye Shipping Protection',
+      '',
+      '📍 Mi dirección es: ',
+    ]
+      .filter((x) => x !== null)
+      .join('\n'),
+  );
 }
 
 function closeModal() {
