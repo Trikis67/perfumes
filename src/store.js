@@ -137,13 +137,21 @@ if (!reduceMotion && window.matchMedia('(hover: hover) and (pointer: fine)').mat
   document.addEventListener('pointermove', (e) => {
     const stage = e.target.closest?.('.card-stage, .rec-stage, .modal-visual, .cart-thumb');
     if (!stage) return;
-    const r = stage.getBoundingClientRect();
-    stage.style.setProperty('--tx', ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
-    stage.style.setProperty('--ty', ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
+    // Se mide la caja que NO se inclina (la tarjeta completa): si se midiera la foto ya inclinada,
+    // su tamaño cambiaría con cada movimiento y la inclinación temblaría.
+    const r = (stage.closest('.card, .rec, .cart-line') || stage).getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width - 0.5).toFixed(3);
+    const y = ((e.clientY - r.top) / r.height - 0.5).toFixed(3);
+    cancelAnimationFrame(stage._tilt || 0);
+    stage._tilt = requestAnimationFrame(() => {
+      stage.style.setProperty('--tx', x);
+      stage.style.setProperty('--ty', y);
+    });
   });
   document.addEventListener('pointerout', (e) => {
     const stage = e.target.closest?.('.card-stage, .rec-stage, .modal-visual, .cart-thumb');
     if (stage && !stage.contains(e.relatedTarget)) {
+      cancelAnimationFrame(stage._tilt || 0);
       stage.style.setProperty('--tx', 0);
       stage.style.setProperty('--ty', 0);
     }

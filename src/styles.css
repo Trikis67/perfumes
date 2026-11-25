@@ -1975,7 +1975,7 @@ button {
     transition: transform 500ms var(--ease), box-shadow 500ms ease;
   }
   @media (hover: hover) and (pointer: fine) {
-    .card-stage:hover {
+    .card:hover .card-stage {
       transform: translateY(-4px);
       box-shadow: 0 16px 34px rgba(20, 18, 15, 0.1);
     }
@@ -2083,7 +2083,7 @@ button {
     transition: transform 450ms var(--ease), box-shadow 500ms ease;
   }
   @media (hover: hover) and (pointer: fine) {
-    .card-stage:hover {
+    .card:hover .card-stage {
       transform: perspective(800px) rotateY(calc(var(--tx) * 14deg)) rotateX(calc(var(--ty) * -12deg)) translateY(-4px);
       transition: transform 120ms linear, box-shadow 500ms ease;
     }
@@ -2903,23 +2903,23 @@ a.pill {
     mix-blend-mode: soft-light;
   }
   @media (hover: hover) and (pointer: fine) {
-    .card-stage:hover,
-    .rec-stage:hover {
+    .card:hover .card-stage,
+    .rec:hover .rec-stage {
       transform: perspective(900px) rotateY(calc(var(--tx) * 16deg)) rotateX(calc(var(--ty) * -14deg)) translateY(-6px);
       box-shadow: 0 24px 40px -18px rgb(0 0 0 / 0.28);
       transition: transform 120ms linear, box-shadow 500ms ease;
     }
-    .card-stage:hover > :is(.bottle, .product-photo, .set-visual),
-    .rec-stage:hover > :is(.bottle, .product-photo, .set-visual) {
+    .card:hover .card-stage > :is(.bottle, .product-photo, .set-visual),
+    .rec:hover .rec-stage > :is(.bottle, .product-photo, .set-visual) {
       transform: translate(calc(var(--tx) * -14px), calc(var(--ty) * -12px)) scale(1.06);
       transition: transform 160ms linear;
     }
-    .card-stage:hover::after,
-    .rec-stage:hover::after {
+    .card:hover .card-stage::after,
+    .rec:hover .rec-stage::after {
       opacity: 1;
     }
     /* Sets: los frascos se abren en abanico */
-    :is(.card-stage, .rec-stage, .modal-visual):hover .set-item {
+    :is(.card:hover .card-stage, .rec:hover .rec-stage, .modal-visual:hover) .set-item {
       transform: translateX(calc(var(--o, 0) * 10%)) rotate(calc(var(--o, 0) * 5deg)) translateY(-4%);
     }
   }
@@ -2981,7 +2981,7 @@ a.pill {
       transform: perspective(800px) rotateX(-14deg) translateY(10px);
     }
   }
-  .rec {
+  .recs-grid.is-fresh .rec {
     animation: rec-in 600ms var(--ease) both;
   }
   .rec:nth-child(2) { animation-delay: 60ms; }

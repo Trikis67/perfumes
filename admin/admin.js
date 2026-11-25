@@ -1,9 +1,9 @@
 import { request, login, logout, sessionStatus, changePassword, ApiError } from './backend.js';
 import { NOTIFY_ENABLED } from '../src/config.js';
-import { slideHTML, WORD_POSITIONS } from '../src/showcase.js';
+import { slideHTML, WORD_POSITIONS, WORD_SIZES, MAX_LINEUP } from '../src/showcase.js';
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 import { setVisualHTML, isSet } from '../src/setvisual.js';
-import { RULES, ruleText } from '../src/categories.js';
+import { RULES, ruleText, categoryMatcher } from '../src/categories.js';
 import { bottleSVG } from '../src/bottle.js';
 
 // Familias olfativas: vienen del servidor. Se crean en la pestaña Catálogo o al momento, desde cada perfume.
@@ -1393,7 +1393,14 @@ const SC_TEXT = ['#1D1B19', '#3A332C', '#F4EFE8', '#8A6430', '#FFFFFF'];
 const scPlaceholder = '<span class="sc-empty">' + ICON.camera + '<span>Sube la foto del frasco</span></span>';
 
 async function renderShowcase(view) {
-  let list = await api('/api/admin/showcase');
+  let [list, allProducts] = await Promise.all([api('/api/admin/showcase'), api('/api/admin/products'), loadCategories().catch(() => (categories = []))]);
+  // Tarjetas con categoría: fotos de sus perfumes.
+  const inCat = categoryMatcher(allProducts.filter((p) => p.visible !== false));
+  const lineup = (x) =>
+    x.photoSource === 'category'
+      ? allProducts.filter((p) => p.visible !== false && p.photo && p.inStock !== false && inCat(p, categories.find((c) => c.id === x.photoCategory))).slice(0, MAX_LINEUP).map((p) => p.photo)
+      : null;
+  const hasImage = (x) => (x.photoSource === 'category' ? lineup(x).length > 0 : !!x.photo);
   view.innerHTML = `
   <div class="view">
     <div class="view-head">
@@ -1409,12 +1416,12 @@ async function renderShowcase(view) {
       ? list
           .map(
             (x, i) => `
-        <div class="sc-row${x.visible === false || !x.photo ? ' is-off' : ''}">
-          <button class="sc-thumb" data-edit="${esc(x.id)}" aria-label="Editar ${esc(x.word)}">${slideHTML(x, { placeholder: scPlaceholder })}</button>
+        <div class="sc-row${x.visible === false || !hasImage(x) ? ' is-off' : ''}">
+          <button class="sc-thumb" data-edit="${esc(x.id)}" aria-label="Editar ${esc(x.word)}">${slideHTML(x, { placeholder: scPlaceholder, photos: lineup(x) })}</button>
           <div class="sc-row-info">
             <strong>${esc(x.word)}</strong>
             <span>${esc(SHOWCASE_FONTS[x.font]?.label || '')}</span>
-            ${!x.photo ? '<span class="chip chip-gold">Sin foto</span>' : x.visible === false ? '<span class="chip chip-muted">Oculto</span>' : '<span class="chip chip-ok">En la tienda</span>'}
+            ${!hasImage(x) ? '<span class="chip chip-gold">Sin foto</span>' : x.visible === false ? '<span class="chip chip-muted">Oculto</span>' : '<span class="chip chip-ok">En la tienda</span>'}
           </div>
           <div class="frow-order">
             <button class="icon-btn" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir">${ICON.up}</button>
@@ -1461,6 +1468,9 @@ async function openSlideEditor(slide, onChange) {
   let pendingFile = null;
   let photo = x.photo;
   loadFonts(Object.keys(SHOWCASE_FONTS)); // para que cada opción se vea con su letra
+  // Fotos de los perfumes de una categoría (para la opción "Perfumes de una categoría").
+  const inCat = categoryMatcher(allProducts.filter((p) => p.visible !== false));
+  const catPhotos = (c) => (c ? allProducts.filter((p) => p.visible !== false && p.photo && p.inStock !== false && inCat(p, c)).map((p) => p.photo) : []);
   const linkValue = ['brand', 'product', 'category'].includes(x.linkType) ? `${x.linkType}:${x.linkId}` : x.linkType || 'none';
   const opt = (v, label) => `<option value="${esc(v)}" ${v === linkValue ? 'selected' : ''}>${esc(label)}</option>`;
 
@@ -1474,7 +1484,22 @@ async function openSlideEditor(slide, onChange) {
     </div>
     <form class="sheet-body" id="scForm" novalidate>
       <div class="sc-preview" id="scPreview"></div>
-      <div class="btns sc-photo-btns">
+      <div class="field full sc-source">
+        <span class="label">Imagen de la tarjeta</span>
+        <div class="src-picks" role="radiogroup" aria-label="Imagen de la tarjeta">
+          <label class="src-pick"><input type="radio" name="photoSource" value="own" ${(x.photoSource || 'own') === 'own' ? 'checked' : ''}><span><strong>Una foto</strong><small>Subida, de un perfume o por link</small></span></label>
+          <label class="src-pick"><input type="radio" name="photoSource" value="category" ${x.photoSource === 'category' ? 'checked' : ''}><span><strong>Perfumes de una categoría</strong><small>Salen juntos todos sus frascos</small></span></label>
+        </div>
+        <div class="sc-cat-pick" data-src="category">
+          <select name="photoCategory" aria-label="Categoría">
+            <option value="">Elegir categoría…</option>
+            ${categories.map((c) => `<option value="${esc(c.id)}" ${c.id === x.photoCategory ? 'selected' : ''}>${esc(c.name)} (${catPhotos(c).length} con foto)</option>`).join('')}
+          </select>
+          <span class="hint">Se muestran hasta ${MAX_LINEUP} perfumes con foto (mejor si son PNG sin fondo). Si agregas perfumes a la categoría, la tarjeta se actualiza sola.</span>
+        </div>
+      </div>
+      <div class="sc-own" data-src="own">
+      <div class="sc-preview-spacer"></div>      <div class="btns sc-photo-btns">
         <label class="btn btn-primary btn-sm file-btn"><span id="scPhotoLabel"></span><input type="file" accept="image/*" id="scPhoto" aria-label="Elegir foto"></label>
         <button type="button" class="btn btn-ghost btn-sm" id="scRemovePhoto">Quitar foto</button>
       </div>
@@ -1495,6 +1520,7 @@ async function openSlideEditor(slide, onChange) {
           <label for="scLinkUrl">O pega el link de una imagen</label>
           <div class="photo-link"><input type="url" id="scLinkUrl" inputmode="url" placeholder="https://…/foto.png" autocomplete="off"><button type="button" class="btn btn-primary btn-sm" id="scLinkUse">Usar</button></div>
         </div>
+      </div>
       </div>
       <div class="fields">
         <div class="field full">
@@ -1522,7 +1548,15 @@ async function openSlideEditor(slide, onChange) {
               .join('')}
           </div>
         </div>
-      </div>
+        <div class="field full">
+          <span class="label">Tamaño de las letras</span>
+          <div class="size-picks" role="radiogroup" aria-label="Tamaño de las letras">
+            ${Object.entries(WORD_SIZES)
+              .map(([id, s]) => `<label class="size-pick"><input type="radio" name="wordSize" value="${id}" ${id === (x.wordSize || 'auto') ? 'checked' : ''}><span>${esc(s.label)}</span></label>`)
+              .join('')}
+          </div>
+          <span class="hint">Automático: la palabra ocupa el espacio y se achica un poco si hay varios frascos.</span>
+        </div>      </div>
       <div id="scColors" class="color-pair">
         ${colorPicker({ name: 'background', value: x.background, label: 'Color de fondo', hint: 'Grises cálidos dan el efecto de estudio con luz de ventana.', swatches: SC_BG })}
         ${colorPicker({ name: 'textColor', value: x.textColor, label: 'Color de la palabra', swatches: SC_TEXT })}
@@ -1556,14 +1590,17 @@ async function openSlideEditor(slide, onChange) {
   const read = () => {
     const d = readForm(form);
     const [linkType, linkId = null] = String(d.link || 'none').split(':');
-    return { word: d.word, font: d.font, wordPos: d.wordPos || 'behind', background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
+    return { word: d.word, font: d.font, wordPos: d.wordPos || 'behind', wordSize: d.wordSize || 'auto', photoSource: d.photoSource || 'own', photoCategory: d.photoCategory || null, background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
   };
   let pendingUrl = null;
   let pendingLink = null; // foto de un perfume ya cargado o por link, en un destacado nuevo (se guarda al crearlo)
   function draw() {
     const d = read();
     const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : pendingLink || photo;
-    $('#scPreview', sheet).innerHTML = slideHTML({ ...d, word: d.word || ' ', photo: src }, { placeholder: scPlaceholder });
+    const fromCat = d.photoSource === 'category';
+    const photos = fromCat ? catPhotos(categories.find((c) => c.id === d.photoCategory)).slice(0, MAX_LINEUP) : null;
+    $$('[data-src]', sheet).forEach((el) => (el.hidden = el.dataset.src !== (fromCat ? 'category' : 'own')));
+    $('#scPreview', sheet).innerHTML = slideHTML({ ...d, word: d.word || ' ', photo: src }, { placeholder: fromCat && !photos.length ? '<span class="sc-empty">Elige una categoría con perfumes que tengan foto</span>' : scPlaceholder, photos });
     $('#scPhotoLabel', sheet).textContent = src ? 'Cambiar foto' : 'Subir foto';
     $('#scRemovePhoto', sheet).hidden = !src;
   }
@@ -1574,6 +1611,15 @@ async function openSlideEditor(slide, onChange) {
   form.addEventListener('change', draw);
   const baseline = JSON.stringify(read());
   const dirty = () => pendingFile !== null || pendingLink !== null || JSON.stringify(read()) !== baseline;
+
+  // Categoría elegida para la imagen: si la tarjeta no llevaba a ningún lado, ahora lleva a esa categoría.
+  form.elements.photoCategory.addEventListener('change', (e) => {
+    const link = $('#scLink', sheet);
+    if (e.target.value && link.value === 'none') {
+      link.value = `category:${e.target.value}`;
+      draw();
+    }
+  });
 
   // Usar una foto que ya existe (de un perfume del catálogo o de un link).
   async function useExistingPhoto(url, btn) {
@@ -1690,7 +1736,7 @@ async function openSlideEditor(slide, onChange) {
           pendingLink = null;
         }
         await onChange();
-        toast(saved.photo ? 'Guardado. Ya está en la tienda.' : 'Guardado. Sube una foto para que aparezca en la tienda.');
+        toast(saved.photo || saved.photoSource === 'category' ? 'Guardado. Ya está en la tienda.' : 'Guardado. Sube una foto para que aparezca en la tienda.');
         close(true);
       } catch (err) {
         toast(err.message, true);

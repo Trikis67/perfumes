@@ -119,3 +119,52 @@
 .sc-pos-bottom .sc-empty {
   bottom: 34%;
 }
+/* ---------- Varios frascos (todos los perfumes de una categoría) ---------- */
+.sc-lineup {
+  position: absolute;
+  z-index: 2;
+  left: 4%;
+  right: 4%;
+  bottom: 13%;
+  height: 58%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sc-lineup-img {
+  position: relative;
+  z-index: var(--z, 1);
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 46%;
+  height: calc(100% - var(--d, 0) * 13%);
+  margin-inline: calc(-16% / var(--n, 1));
+  object-fit: contain;
+  object-position: 50% 100%;
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.26));
+  -webkit-box-reflect: below 1px linear-gradient(transparent 70%, rgba(255, 255, 255, 0.22));
+}
+.sc-pos-front .sc-lineup {
+  z-index: 2;
+}
+.sc-pos-top .sc-lineup {
+  height: 50%;
+}
+.sc-pos-bottom .sc-lineup {
+  bottom: 30%;
+  height: 52%;
+}
+.sc-pos-bottom .sc-lineup-img {
+  -webkit-box-reflect: unset;
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .sc-lineup-img {
+    transition: translate 600ms var(--ease, ease), rotate 600ms var(--ease, ease);
+    transform-origin: 50% 100%;
+  }
+  /* Al pasar el cursor, los frascos se abren un poco en abanico */
+  .sc-slide:hover .sc-lineup-img {
+    translate: calc(var(--o) * 6%) -4%;
+    rotate: calc(var(--o) * 3deg);
+  }
+}

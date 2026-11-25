@@ -205,6 +205,8 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
     else recs = recs.filter((p) => !lines.some((l) => l.id === p.id));
     const box = document.getElementById('cartRecs');
     box.closest('.cart-recs').hidden = !recs.length;
+    // La animación de entrada solo al abrir el carrito, no cada vez que se agrega algo.
+    box.classList.toggle('is-fresh', fresh);
     box.innerHTML = recs
       .map((p) => {
         const brand = brandName(p.brand);

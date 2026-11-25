@@ -268,6 +268,15 @@ export function cleanSlide(input, existing, { fonts, brands, productIds, categor
     font: oneOf(input.font, new Set(fonts), 'El tipo de letra', existing.font || fonts[0]),
     textColor: color(input.textColor, existing.textColor || '#1D1B19'),
     wordPos: oneOf(input.wordPos, new Set(['behind', 'front', 'top', 'bottom']), 'La posición de la palabra', existing.wordPos || 'behind'),
+    wordSize: oneOf(input.wordSize, new Set(['auto', 's', 'm', 'l']), 'El tamaño de las letras', existing.wordSize || 'auto'),
+    // Imagen: una foto propia o todos los perfumes de una categoría.
+    ...(() => {
+      const source = oneOf(input.photoSource, new Set(['own', 'category']), 'La imagen de la tarjeta', existing.photoSource || 'own');
+      if (source !== 'category') return { photoSource: 'own', photoCategory: null };
+      const cat = input.photoCategory === undefined ? existing.photoCategory : input.photoCategory;
+      if (!categories.some((c) => c.id === cat)) throw new ValidationError('Elige la categoría de la que salen los perfumes.');
+      return { photoSource: 'category', photoCategory: cat };
+    })(),
     background: color(input.background, existing.background || '#D9D5CF'),
     linkType: type,
     linkId,

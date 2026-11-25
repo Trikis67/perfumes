@@ -49,16 +49,49 @@ export const WORD_POSITIONS = {
   bottom: { label: 'Abajo', height: 24 },
 };
 
-export function slideHTML(slide, { placeholder = '' } = {}) {
+// Tamaño de la palabra: "auto" llena el espacio (y se achica un poco si hay varios frascos).
+export const WORD_SIZES = {
+  auto: { label: 'Automático', factor: 1 },
+  s: { label: 'Pequeño', factor: 0.55 },
+  m: { label: 'Mediano', factor: 0.75 },
+  l: { label: 'Grande', factor: 1 },
+};
+// Cuántos frascos se muestran como máximo cuando la tarjeta usa una categoría.
+export const MAX_LINEUP = 5;
+
+// Varios frascos sin fondo, uno al lado del otro: el del medio al frente y un poco más grande.
+function lineupHTML(photos) {
+  const list = photos.slice(0, MAX_LINEUP);
+  const mid = (list.length - 1) / 2;
+  return `<span class="sc-lineup" style="--n:${list.length}">${list
+    .map((src, i) => {
+      const d = Math.abs(i - mid);
+      return `<img class="sc-lineup-img" src="${esc(src)}" alt="" loading="lazy" decoding="async" style="--d:${d.toFixed(2)};--o:${(i - mid).toFixed(2)};--z:${10 - Math.round(d * 2)}">`;
+    })
+    .join('')}</span>`;
+}
+
+// photos: si la tarjeta usa una categoría, las fotos de sus perfumes (se las pasa la tienda o el panel).
+export function slideHTML(slide, { placeholder = '', photos = null } = {}) {
   const font = SHOWCASE_FONTS[slide.font] || SHOWCASE_FONTS[DEFAULT_FONT];
   const lines = wordLines(slide.word);
   const pos = WORD_POSITIONS[slide.wordPos] ? slide.wordPos : 'behind';
+  const many = Array.isArray(photos) && photos.length > 0;
+  const sizeKey = WORD_SIZES[slide.wordSize] ? slide.wordSize : 'auto';
+  // Automático: con varios frascos la palabra se achica un poco para que se vean todos.
+  const factor = sizeKey === 'auto' ? (many && photos.length > 1 && pos !== 'top' && pos !== 'bottom' ? 0.82 : 1) : WORD_SIZES[sizeKey].factor;
+  const fs = (wordSize(lines, WORD_POSITIONS[pos].height) * factor).toFixed(2);
   loadFonts([slide.font || DEFAULT_FONT]);
+  const image = many
+    ? lineupHTML(photos)
+    : slide.photo
+      ? `<img class="sc-photo" src="${esc(slide.photo)}" alt="" loading="lazy" decoding="async">`
+      : placeholder;
   return `
-    <span class="sc-card sc-pos-${pos}" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)}">
+    <span class="sc-card sc-pos-${pos}${many ? ' has-lineup' : ''}" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)}">
       <span class="sc-light" aria-hidden="true"></span>
-      <span class="sc-word" aria-hidden="true" style="--fs:${wordSize(lines, WORD_POSITIONS[pos].height)}cqw">${lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span>
-      ${slide.photo ? `<img class="sc-photo" src="${esc(slide.photo)}" alt="" loading="lazy" decoding="async">` : placeholder}
+      <span class="sc-word" aria-hidden="true" style="--fs:${fs}cqw">${lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span>
+      ${image}
       <span class="sc-floor" aria-hidden="true"></span>
     </span>`;
 }

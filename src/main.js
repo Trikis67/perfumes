@@ -1,7 +1,7 @@
 // Portada: Próximamente, Destacados, minis, marcas y preguntas. Los perfumes en venta están en la página Tienda.
 import { subscribeToLaunch } from './api.js';
 import { NOTIFY_ENABLED } from './config.js';
-import { slideHTML } from './showcase.js';
+import { slideHTML, MAX_LINEUP } from './showcase.js';
 import {
   products,
   upcoming,
@@ -18,6 +18,8 @@ import {
   openModal,
   shopUrl,
   initPage,
+  inCategory,
+  categories,
 } from './store.js';
 
 initPage();
@@ -201,7 +203,15 @@ function bindNotify(d) {
 /* =========================================================
    Destacados: carrusel de tarjetas grandes (solo si el dueño creó alguna con foto)
    ========================================================= */
-const slides = showcase.filter((x) => x.visible !== false && x.photo);
+// Tarjetas con una categoría: muestran las fotos de todos sus perfumes (los que tienen foto).
+const lineupOf = (x) =>
+  x.photoSource === 'category'
+    ? products
+        .filter((p) => p.photo && p.inStock !== false && inCategory(p, categories.find((c) => c.id === x.photoCategory)))
+        .slice(0, MAX_LINEUP)
+        .map((p) => p.photo)
+    : null;
+const slides = showcase.filter((x) => x.visible !== false && (x.photoSource === 'category' ? lineupOf(x).length > 0 : x.photo));
 const scSection = $('#destacados');
 if (!slides.length) scSection.remove();
 else {
@@ -218,7 +228,7 @@ else {
             : null;
   track.innerHTML = slides
     .map((x) => {
-      const inner = slideHTML(x);
+      const inner = slideHTML(x, { photos: lineupOf(x) });
       const label = esc(x.word.replace(/\//g, ' '));
       if (x.linkType === 'product' && x.linkId) return `<li class="sc-slide"><button data-open="${esc(x.linkId)}" aria-label="${label}">${inner}</button></li>`;
       const href = linkOf(x);
