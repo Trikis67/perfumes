@@ -4,6 +4,7 @@ import { products as seedProducts, families as seedFamilies, brands as seedBrand
 import { bottleSVG } from './bottle.js';
 import { loadCatalog } from './api.js';
 import { isSet, setVisualHTML } from './setvisual.js';
+import { createCart } from './cart.js';
 export { isSet };
 
 // Catálogo vivo desde el panel; si Supabase no responde, se usa el de respaldo.
@@ -22,15 +23,19 @@ export const categories = catalog.categories || [];
 export const showcase = catalog.showcase || [];
 
 // Shipping Protection: se suma a TODOS los precios (perfumes, decants y sets). El monto se cambia en el panel.
+const round2 = (n) => Math.round(Number(n) * 100) / 100;
 const fee = Number(catalog.shop?.protectionFee);
-export const PROTECTION_FEE = Number.isInteger(fee) && fee >= 0 ? fee : 5;
-for (const p of products) p.prices = Object.fromEntries(Object.entries(p.prices).map(([ml, v]) => [ml, Number(v) + PROTECTION_FEE]));
+export const PROTECTION_FEE = Number.isFinite(fee) && fee >= 0 ? fee : 5;
+for (const p of products) p.prices = Object.fromEntries(Object.entries(p.prices).map(([ml, v]) => [ml, round2(Number(v) + PROTECTION_FEE)]));
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Precios en quetzales guatemaltecos: Q1,250
-export const fmt = (n) => 'Q' + Number(n).toLocaleString('es-GT');
+export const fmt = (n) => {
+  const v = Number(n);
+  return 'Q' + v.toLocaleString('es-GT', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 });
+};
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Ruta a la raíz del sitio desde la página actual ("./" en la portada, "../" en /tienda/).
@@ -51,6 +56,8 @@ export const minPrice = (p) => Math.min(...Object.values(p.prices));
 
 export const brandName = (id) => brands.find((b) => b.id === id)?.name || '';
 export const familyName = (id) => families.find((f) => f.id === id)?.name || '';
+// Un perfume puede tener varias familias (los guardados antes solo tienen "family").
+export const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
 export const categoryName = (id) => categories.find((c) => c.id === id)?.name || '';
 export const productById = Object.fromEntries(products.map((p) => [p.id, p]));
 export const usedBrands = brands.filter((b) => products.some((p) => p.brand === b.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -149,7 +156,7 @@ export function openModal(id) {
   $('#modalVisual').innerHTML = visualFor(p, { lazy: false });
   $('#modalBrand').textContent = brandName(p.brand);
   $('#modalName').textContent = p.name;
-  $('#modalMeta').textContent = [isSet(p) ? 'Set de perfumes' : '', categoryName(p.category), p.gender, familyName(p.family)].filter(Boolean).join(' · ');
+  $('#modalMeta').textContent = [isSet(p) ? 'Set de perfumes' : '', categoryName(p.category), p.gender, familiesOf(p).map(familyName).filter(Boolean).join(', ')].filter(Boolean).join(' · ');
   $('#modalDesc').textContent = p.description;
   $('#modalNotes').innerHTML = [
     ['Al aplicarlo', p.notes?.top],
@@ -209,8 +216,8 @@ function closeModal() {
 }
 
 // Aviso de Shipping Protection justo antes de confirmar el pedido (sin precio aparte: ya va incluido).
-const PROTECTION_HTML = `
-  <details class="protection" open>
+const protectionHTML = (open = false) => `
+  <details class="protection" ${open ? 'open' : ''}>
     <summary>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6Z"/><path d="m8.8 12.2 2.2 2.2 4.4-4.6"/></svg>
       <span><strong>Shipping Protection incluido</strong><small>Tu pedido llega bien o lo resolvemos nosotros</small></span>
@@ -223,9 +230,20 @@ const PROTECTION_HTML = `
     </ul>
   </details>`;
 
+let cart = null;
+
 function bindModal() {
   modal = $('#modal');
-  $('#modalOrder').insertAdjacentHTML('beforebegin', PROTECTION_HTML);
+  // Antes del pedido: aviso de protección, "Agregar al carrito" y, como opción, pedir solo este por WhatsApp.
+  const order = $('#modalOrder');
+  order.insertAdjacentHTML('beforebegin', `${protectionHTML(false)}<button class="btn btn-block" id="modalAdd" type="button">Agregar al carrito</button>`);
+  order.classList.add('btn-ghost');
+  order.textContent = 'Pedir solo este por WhatsApp';
+  $('#modalAdd').addEventListener('click', () => {
+    const ml = Number($('input[name="size"]:checked', modal)?.value);
+    cart?.add(current.id, ml);
+    closeModal();
+  });
   $('#modalSizes').addEventListener('change', updateOrder);
   $('#modalClose').addEventListener('click', closeModal);
   modal.addEventListener('cancel', (e) => {
@@ -378,6 +396,22 @@ export function initPage() {
   });
   bindMobileMenu();
   bindModal();
+  cart = createCart({
+    products,
+    productById,
+    fmt,
+    esc,
+    visualFor,
+    brandName,
+    isSet,
+    waLink,
+    miniMax: MINI_MAX_ML,
+    protectionHTML,
+    reduceMotion,
+    minPrice,
+    sizesOf,
+    familiesOf,
+  });
   const year = $('#year');
   if (year) year.textContent = new Date().getFullYear();
 }

@@ -2071,3 +2071,63 @@ a {
   max-width: calc(var(--n, 2) * 110px);
   margin: 0 auto;
 }
+
+/* ---------- Varias familias por perfume ---------- */
+.family-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fpicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fpick {
+  position: relative;
+  cursor: pointer;
+}
+.fpick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.fpick span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 14px;
+  transition: box-shadow 160ms ease, background-color 160ms ease;
+}
+.fpick i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.fpick input:checked + span {
+  background: color-mix(in srgb, var(--c) 16%, var(--white));
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.fpick input:checked + span::after {
+  content: '✓';
+  font-size: 12px;
+}
+.fpick input:focus-visible + span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.fpick-new {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 99px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  border: 1px dashed transparent;
+  color: var(--ink-soft);
+  font-size: 14px;
+}

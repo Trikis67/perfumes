@@ -6,6 +6,7 @@ import {
   usedCategories,
   categoryName,
   isSet,
+  familiesOf,
   families,
   $,
   $$,
@@ -31,7 +32,7 @@ $('#fMarca').insertAdjacentHTML('beforeend', usedBrands.map((b) => `<option valu
 $('#fCategoria').insertAdjacentHTML('beforeend', usedCategories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join(''));
 if (!usedCategories.length) $('#fCategoriaWrap').hidden = true;
 if (!products.some(isSet)) $('option[value="sets"]', form).remove();
-const usedFamilies = families.filter((f) => products.some((p) => p.family === f.id));
+const usedFamilies = families.filter((f) => products.some((p) => familiesOf(p).includes(f.id)));
 $('#fFamilia').insertAdjacentHTML('beforeend', usedFamilies.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join(''));
 
 // Lee los filtros de la dirección y los pone en el formulario (ignora valores que no existen).
@@ -67,7 +68,7 @@ function render() {
       (!s.categoria || p.category === s.categoria) &&
       (!s.marca || p.brand === s.marca) &&
       (!s.para || p.gender === s.para) &&
-      (!s.familia || p.family === s.familia) &&
+      (!s.familia || familiesOf(p).includes(s.familia)) &&
       (min == null || minPrice(p) >= min) &&
       (max == null || minPrice(p) <= max),
   );

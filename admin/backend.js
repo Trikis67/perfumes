@@ -4,7 +4,7 @@
 // aunque alguien cambie este código, sin ser admin no puede escribir nada.
 import { supabase, supabaseReady, PHOTO_PREFIX } from '../src/supabase.js';
 import { PANEL_EMAIL_DOMAIN } from '../src/config.js';
-import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE } from '../src/validate.js';
+import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE, familiesOf } from '../src/validate.js';
 import { SHOWCASE_FONTS } from '../src/fonts.js';
 
 export class ApiError extends Error {
@@ -206,7 +206,7 @@ const routes = [
     /^\/families$/,
     async () => {
       const [families, products, upcoming] = await Promise.all([getFamilies(), listProducts(), getSetting('upcoming')]);
-      return families.map((f) => ({ ...f, products: products.filter((p) => p.family === f.id).length, upcoming: upcoming?.family === f.id }));
+      return families.map((f) => ({ ...f, products: products.filter((p) => familiesOf(p).includes(f.id)).length, upcoming: upcoming?.family === f.id }));
     },
   ],
   [
@@ -251,11 +251,14 @@ const routes = [
       const [list, products, upcoming] = await Promise.all([getFamilies(), listProducts(), getSetting('upcoming')]);
       if (!list.some((f) => f.id === id)) throw new ApiError('Esa familia no existe.', 404);
       if (list.length <= 1) throw new ApiError('Debe quedar al menos una familia.');
-      const used = products.filter((p) => p.family === id);
+      const used = products.filter((p) => familiesOf(p).includes(id));
       if (used.length || upcoming?.family === id) {
         const target = list.find((f) => f.id === body?.moveTo && f.id !== id);
         if (!target) throw new ApiError('Elige a qué familia pasan sus perfumes antes de borrarla.', 409);
-        for (const p of used) await saveProduct({ ...p, family: target.id });
+        for (const p of used) {
+          const next = [...new Set(familiesOf(p).map((f) => (f === id ? target.id : f)))];
+          await saveProduct({ ...p, families: next, family: next[0] });
+        }
         if (upcoming?.family === id) await setSetting('upcoming', { ...upcoming, family: target.id });
       }
       await setSetting('families', list.filter((f) => f.id !== id));

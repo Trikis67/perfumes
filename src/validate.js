@@ -35,16 +35,22 @@ const notes = (v) => ({
   heart: noteList(v?.heart, '"después de un rato"'),
   base: noteList(v?.base, '"al final del día"'),
 });
+// Dinero en quetzales con centavos: "3.99", "Q1,250.50" o "1250". La coma es de miles, el punto de decimales.
+export const round2 = (n) => Math.round(Number(n) * 100) / 100;
+export function parseMoney(v) {
+  const s = String(v ?? '').replace(/[\s,Qq$]/g, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return NaN;
+  return round2(Number(s));
+}
 function prices(v) {
   const out = {};
   for (const [ml, price] of Object.entries(v || {})) {
     const size = Number(ml);
     if (!Number.isInteger(size) || size < 1 || size > 1000) throw new ValidationError('Tamaño en ml no válido.');
     if (price === '' || price == null) continue;
-    // Quetzales enteros: se ignoran "Q", comas, puntos y espacios (Q1,250 → 1250).
-    const value = Number(String(price).replace(/[.,\s$Qq]/g, ''));
-    if (!Number.isFinite(value) || value < 0 || value > 50_000_000) throw new ValidationError('Precio no válido.');
-    out[size] = Math.round(value);
+    const value = parseMoney(price);
+    if (!Number.isFinite(value) || value > 50_000_000) throw new ValidationError(`El precio "${price}" no es válido. Escríbelo así: 350 o 3.99`);
+    out[size] = value;
   }
   if (!Object.keys(out).length) throw new ValidationError('Agrega al menos un precio.');
   return out;
@@ -55,6 +61,9 @@ function brandId(v, brands, fallback = null) {
   if (!brands.some((b) => b.id === v)) throw new ValidationError('La marca no es válida.');
   return v;
 }
+
+// Familias de un perfume (los guardados antes de este cambio solo tienen "family").
+export const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
 
 function categoryId(v, categories, fallback = null) {
   if (v === undefined) return fallback;
@@ -125,13 +134,23 @@ export function cleanProduct(input, existing, { families, brands, categories = [
   } else {
     priceList = prices(input.prices);
   }
+  // Varias familias por perfume (por ejemplo Amaderado y Ámbar). "family" guarda la primera, para lo que solo usa una.
+  const askedFamilies = Array.isArray(input.families) ? input.families : input.family ? [input.family] : null;
+  let familyList = askedFamilies ? [...new Set(askedFamilies.filter(Boolean))] : existing.families || (existing.family ? [existing.family] : []);
+  if (familyList.some((id) => !familyIds.has(id))) throw new ValidationError('Una de las familias no es válida.');
+  if (familyList.length > 5) throw new ValidationError('Elige máximo 5 familias por perfume.');
+  if (!familyList.length) {
+    if (askedFamilies) throw new ValidationError('Elige al menos una familia.');
+    familyList = families[0] ? [families[0].id] : [];
+  }
   return {
     name,
     kind,
     items,
     brand: brandId(input.brand, brands, existing.brand ?? null),
     category: categoryId(input.category, categories, existing.category ?? null),
-    family: oneOf(input.family, familyIds, 'La familia', existing.family || families[0]?.id),
+    families: familyList,
+    family: familyList[0] || null,
     gender: oneOf(input.gender, GENDERS, 'El género', existing.gender || 'Unisex'),
     description: text(input.description, 'la descripción', { max: 400 }),
     tag: text(input.tag, 'la etiqueta', { max: 30 }) || null,
@@ -180,9 +199,8 @@ export function cleanBrand(input, others) {
 // Ajustes de la tienda. protectionFee: quetzales de Shipping Protection que se suman a cada precio.
 export const DEFAULT_PROTECTION_FEE = 5;
 export function cleanShop(input, existing = {}) {
-  const raw = String(input?.protectionFee ?? '').replace(/[.,\s$Qq]/g, '');
-  const fee = Number(raw);
-  if (raw === '' || !Number.isInteger(fee) || fee < 0 || fee > 1000) throw new ValidationError('Escribe un monto de protección entre Q0 y Q1,000 (sin centavos).');
+  const fee = parseMoney(input?.protectionFee);
+  if (!Number.isFinite(fee) || fee > 1000) throw new ValidationError('Escribe un monto de protección entre Q0 y Q1,000, por ejemplo 5 o 4.99.');
   return { ...existing, protectionFee: fee };
 }
 

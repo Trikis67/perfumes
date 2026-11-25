@@ -26,7 +26,10 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const app = $('#app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 // Precios en quetzales guatemaltecos: Q1,250
-const fmt = (n) => 'Q' + Number(n || 0).toLocaleString('es-GT');
+const fmt = (n) => {
+  const v = Number(n || 0);
+  return 'Q' + v.toLocaleString('es-GT', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 });
+};
 const familyName = (id) => families.find((f) => f.id === id)?.name || '';
 const brandName = (id) => brands.find((b) => b.id === id)?.name || '';
 const categoryName = (id) => categories.find((c) => c.id === id)?.name || '';
@@ -348,6 +351,82 @@ document.addEventListener('keydown', (e) => {
   createFromBox(box, $('[data-create]', box));
 });
 
+/* ---------- Varias familias por perfume ---------- */
+// Casillas con todas las familias guardadas + "Nueva familia" para crear una al momento (queda guardada).
+const familyChip = (f, on) =>
+  `<label class="fpick" style="--c:${esc(f.color || '#B58A4C')}"><input type="checkbox" name="families" value="${esc(f.id)}" ${on ? 'checked' : ''}><span><i aria-hidden="true"></i>${esc(f.name)}</span></label>`;
+function familyPicker(selected = []) {
+  // Las marcadas van primero, en su orden, para que la principal se vea al inicio.
+  const order = [...selected.map((id) => families.find((f) => f.id === id)).filter(Boolean), ...families.filter((f) => !selected.includes(f.id))];
+  return `
+  <div class="family-picks" role="group" aria-labelledby="famLabel">
+    <div class="fpicks">${order.map((f) => familyChip(f, selected.includes(f.id))).join('')}<button type="button" class="fpick-new" data-family-new>+ Nueva familia</button></div>
+    <div class="creatable-new" hidden>
+      <input maxlength="40" placeholder="Por ejemplo Gourmand" aria-label="Nombre de la nueva familia" autocomplete="off">
+      <button type="button" class="btn btn-primary btn-sm" data-family-create>Crear</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-family-cancel>Cancelar</button>
+    </div>
+  </div>`;
+}
+const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
+const familyNames = (p) => familiesOf(p).map(familyName).filter(Boolean).join(', ');
+document.addEventListener('change', (e) => {
+  const c = e.target.closest('.fpick input');
+  if (!c) return;
+  const box = c.closest('.family-picks');
+  const on = $$('.fpick input:checked', box);
+  if (on.length > 5) {
+    c.checked = false;
+    toast('Máximo 5 familias por perfume.', true);
+  }
+});
+async function createFamilyFromPicker(box, btn) {
+  const input = $('.creatable-new input', box);
+  const name = input.value.trim();
+  if (!name) return input.focus();
+  const finish = (id) => {
+    const keep = $$('.fpick input:checked', box).map((i) => i.value);
+    if (!keep.includes(id)) keep.push(id);
+    $('.fpicks', box).innerHTML =
+      families.map((f) => familyChip(f, keep.includes(f.id))).join('') + '<button type="button" class="fpick-new" data-family-new>+ Nueva familia</button>';
+    $('.creatable-new', box).hidden = true;
+    input.value = '';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const same = families.find((f) => f.name.toLowerCase() === name.toLowerCase());
+  if (same) {
+    finish(same.id);
+    return toast(`"${same.name}" ya existía: quedó marcada.`);
+  }
+  await withLoading(btn, async () => {
+    try {
+      const created = await api('/api/admin/families', { method: 'POST', body: CREATABLE.family.body(name) });
+      await loadFamilies();
+      finish(created.id);
+      toast('Familia creada y guardada');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+document.addEventListener('click', (e) => {
+  const box = e.target.closest('.family-picks');
+  if (!box) return;
+  if (e.target.closest('[data-family-new]')) {
+    $('.creatable-new', box).hidden = false;
+    $('.creatable-new input', box).focus();
+  }
+  if (e.target.closest('[data-family-cancel]')) $('.creatable-new', box).hidden = true;
+  const b = e.target.closest('[data-family-create]');
+  if (b) createFamilyFromPicker(box, b);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.closest('.family-picks .creatable-new input')) return;
+  e.preventDefault();
+  const box = e.target.closest('.family-picks');
+  createFamilyFromPicker(box, $('[data-family-create]', box));
+});
+
 const genderOptions = (sel) => ['Unisex', 'Femenino', 'Masculino'].map((g) => `<option ${g === sel ? 'selected' : ''}>${g}</option>`).join('');
 const notesFields = (n = {}) => `
   <div class="field full"><label for="nTop">Huele a… al aplicarlo</label><input id="nTop" name="notes.top" value="${esc((n.top || []).join(', '))}" placeholder="Limón, Pimienta rosa"><span class="hint">Lo primero que se siente. Separa cada aroma con una coma.</span></div>
@@ -476,10 +555,16 @@ function readForm(form) {
   for (const el of form.elements) {
     if (!el.name) continue;
     if (el.type === 'radio' && !el.checked) continue; // en un grupo de opciones solo vale la marcada
+    if (el.name === 'families') {
+      // Varias familias: lista con las marcadas; la primera que se marcó queda como principal.
+      out.families ||= [];
+      if (el.checked) out.families.push(el.value);
+      continue;
+    }
     // Mientras se escribe una marca/familia nueva, cuenta la que estaba elegida antes.
     const v = el.type === 'checkbox' ? el.checked : el.value === CREATE_NEW ? el.dataset.prev || '' : el.value;
     if (el.name.startsWith('notes.')) out.notes[el.name.slice(6)] = v.split(',').map((s) => s.trim()).filter(Boolean);
-    else if (el.name.startsWith('prices.')) (out.prices ||= {})[el.name.slice(7)] = v === '' ? '' : Number(String(v).replace(/\D/g, ''));
+    else if (el.name.startsWith('prices.')) (out.prices ||= {})[el.name.slice(7)] = String(v).trim(); // con decimales: 3.99
     else out[el.name] = v;
   }
   return out;
@@ -742,7 +827,7 @@ async function renderProducts(view) {
       <h2>Shipping Protection</h2>
       <p class="help">Este monto se suma <strong>siempre</strong> al precio de cada perfume, decant y set en la tienda. El cliente no lo ve aparte: al confirmar su pedido ve que su envío va protegido contra daños o pérdidas.</p>
       <form class="protection-form" id="protectionForm" novalidate>
-        <div class="field"><label for="protectionFee">Monto por perfume</label><div class="money"><input id="protectionFee" name="protectionFee" inputmode="numeric" value="${esc(shopSettings.protectionFee)}" aria-describedby="protectionHint"></div></div>
+        <div class="field"><label for="protectionFee">Monto por perfume</label><div class="money"><input id="protectionFee" name="protectionFee" inputmode="decimal" value="${esc(shopSettings.protectionFee)}" aria-describedby="protectionHint"></div></div>
         <button class="btn btn-primary" type="submit">Guardar</button>
       </form>
       <span class="hint" id="protectionHint">Ejemplo: un perfume de Q300 se muestra en la tienda a ${fmt(300 + Number(shopSettings.protectionFee || 0))}.</span>
@@ -755,7 +840,7 @@ async function renderProducts(view) {
 
   function draw() {
     const q = $('#pSearch').value.trim().toLowerCase();
-    const items = list.filter((p) => !q || [p.name, familyName(p.family), brandName(p.brand), categoryName(p.category)].some((t) => t.toLowerCase().includes(q)));
+    const items = list.filter((p) => !q || [p.name, familyNames(p), brandName(p.brand), categoryName(p.category)].some((t) => t.toLowerCase().includes(q)));
     const hidden = list.filter((p) => !p.visible).length;
     $('#pCount').textContent = `${list.length} perfumes${hidden ? `, ${hidden} ocultos` : ''}`;
     $('#plist').innerHTML = items.length
@@ -765,7 +850,7 @@ async function renderProducts(view) {
             return `
         <button class="prow${p.visible ? '' : ' is-hidden'}" data-id="${esc(p.id)}" style="--liq:${esc(p.liquid)}">
           <span class="thumb${p.photo || isSet(p) ? ' has-photo' : ''}${isSet(p) ? ' is-set' : ''}">${visualFor(p)}</span>
-          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryName(p.category), familyName(p.family)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
+          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryName(p.category), familyNames(p)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
           <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : !p.photo && !isSet(p) ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
         </button>`;
           })
@@ -780,7 +865,7 @@ async function renderProducts(view) {
       try {
         shopSettings = await api('/api/admin/shop', { method: 'PUT', body: { protectionFee: $('#protectionFee').value } });
         $('#protectionFee').value = shopSettings.protectionFee;
-        $('#protectionHint').textContent = `Ejemplo: un perfume de Q300 se muestra en la tienda a ${fmt(300 + shopSettings.protectionFee)}.`;
+        $('#protectionHint').textContent = `Ejemplo: un perfume de Q300 se muestra en la tienda a ${fmt(Math.round((300 + Number(shopSettings.protectionFee)) * 100) / 100)}.`;
         toast(`Listo: se suman ${fmt(shopSettings.protectionFee)} a cada precio de la tienda.`);
       } catch (err) {
         toast(err.message, true);
@@ -851,18 +936,22 @@ function openProductEditor(product, onChange, allProducts = []) {
         <div class="field full"><label for="pName">Nombre</label><input id="pName" name="name" value="${esc(p.name)}" maxlength="60" required></div>
         <div class="field full"><label for="pBrand">Marca</label>${creatableSelect('brand', { id: 'pBrand', name: 'brand', value: p.brand })}<span class="hint">Elige una que ya usaste o crea una nueva: queda guardada para los siguientes perfumes.</span></div>
         <div class="field"><label for="pCategory">Categoría</label>${creatableSelect('category', { id: 'pCategory', name: 'category', value: p.category })}</div>
-        <div class="field"><label for="pFamily">Familia</label>${creatableSelect('family', { id: 'pFamily', name: 'family', value: p.family })}</div>
         <div class="field"><label for="pGender">Para</label><select id="pGender" name="gender">${genderOptions(p.gender)}</select></div>
+        <div class="field full">
+          <span class="label" id="famLabel">Familias</span>
+          <span class="hint">Marca todas las que tenga este perfume (hasta 5). Si falta una, créala con "+ Nueva familia" y queda guardada.</span>
+          ${familyPicker(familiesOf(p))}
+        </div>
         <div class="field full set-editor" data-for="set">
           <span class="label">Perfumes del set</span>
           <span class="hint">Agrega de 2 a 6 perfumes. Cada uno puede tener su propio nombre, tamaño, color y foto, o puedes copiar uno de tu catálogo. En la tienda la imagen del set muestra <strong>todos</strong> juntos.</span>
           <div class="set-rows" id="setRows"></div>
           <button type="button" class="btn btn-ghost btn-sm" id="addSetItem">${ICON.plus}Agregar perfume al set</button>
-          <div class="field set-price-field"><label for="pSetPrice">Precio del set</label><div class="money"><input id="pSetPrice" name="setPrice" inputmode="numeric" value="${esc(setPriceValue)}" placeholder="Precio"></div><span class="hint">En quetzales, sin centavos. La tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span></div>
+          <div class="field set-price-field"><label for="pSetPrice">Precio del set</label><div class="money"><input id="pSetPrice" name="setPrice" inputmode="decimal" value="${esc(setPriceValue)}" placeholder="Precio"></div><span class="hint">En quetzales; puedes usar decimales, por ejemplo 3.99. La tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span></div>
         </div>
         <div class="field full sizes-editor" data-for="perfume">
           <span class="label">Tamaños y precios</span>
-          <span class="hint">Agrega los tamaños en que vendes este perfume, en quetzales. Los de 15 ml o menos salen en la tienda como <strong>decant</strong> (perfume original en frasco pequeño). A cada precio la tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span>
+          <span class="hint">Agrega los tamaños en que vendes este perfume, en quetzales (puedes usar decimales, por ejemplo 3.99). Los de 15 ml o menos salen en la tienda como <strong>decant</strong> (perfume original en frasco pequeño). A cada precio la tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span>
           <div class="size-rows" id="sizeRows"></div>
           <div class="size-add">
             <div class="tag-examples" id="sizeChips" aria-label="Tamaños comunes"></div>
@@ -899,7 +988,7 @@ function openProductEditor(product, onChange, allProducts = []) {
         (ml) => `
       <div class="size-row">
         <span class="size-ml">${ml} ml${ml <= MINI_MAX_ML ? '<small>Decant</small>' : ''}</span>
-        <div class="money"><input name="prices.${ml}" data-ml="${ml}" inputmode="numeric" value="${esc(priceValues[ml] ?? '')}" placeholder="Precio" aria-label="Precio de ${ml} ml"></div>
+        <div class="money"><input name="prices.${ml}" data-ml="${ml}" inputmode="decimal" value="${esc(priceValues[ml] ?? '')}" placeholder="Precio" aria-label="Precio de ${ml} ml"></div>
         <button type="button" class="icon-btn" data-remove-size="${ml}" aria-label="Quitar ${ml} ml" ${sizes.length === 1 ? 'disabled' : ''}>${ICON.trash}</button>
       </div>`,
       )
