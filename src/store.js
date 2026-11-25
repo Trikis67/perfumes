@@ -5,6 +5,7 @@ import { bottleSVG } from './bottle.js';
 import { loadCatalog } from './api.js';
 import { isSet, setVisualHTML } from './setvisual.js';
 import { createCart } from './cart.js';
+import { createSearch, mountSearch } from './search.js';
 export { isSet };
 
 // Catálogo vivo desde el panel; si Supabase no responde, se usa el de respaldo.
@@ -62,6 +63,14 @@ export const categoryName = (id) => categories.find((c) => c.id === id)?.name ||
 export const productById = Object.fromEntries(products.map((p) => [p.id, p]));
 export const usedBrands = brands.filter((b) => products.some((p) => p.brand === b.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
 export const usedCategories = categories.filter((c) => products.some((p) => p.category === c.id));
+// Buscador con tolerancia a errores (se usa en la lupa de la barra y en la página Tienda con ?q=).
+export const searchProducts = createSearch({
+  products,
+  brandName,
+  familyName: (id) => families.find((f) => f.id === id)?.name || '',
+  categoryName,
+  familiesOf: (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []),
+});
 
 // La foto subida desde el panel; mientras no exista, un frasco dibujado provisional.
 // Los sets muestran todos sus perfumes juntos.
@@ -531,6 +540,7 @@ export function initPage() {
     familiesOf,
     fly: flyToCart,
   });
+  mountSearch({ search: searchProducts, products, fmt, esc, visualFor, brandName, minPrice, isSet, shopUrl, reduceMotion });
   const year = $('#year');
   if (year) year.textContent = new Date().getFullYear();
 }

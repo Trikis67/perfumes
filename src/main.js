@@ -13,6 +13,7 @@ import {
   reduceMotion,
   brandName,
   familyName,
+  familiesOf,
   bottleFor,
   openModal,
   shopUrl,
@@ -58,7 +59,7 @@ function renderHero() {
     .map((w) => `<span class="hw" aria-hidden="true">${[...w].map((ch) => `<span class="hc" style="--c:${n++}">${esc(ch)}</span>`).join('')}</span>`)
     .join(' ');
   $('#heroLead').textContent = d.edition || 'Muy pronto.';
-  $('#heroDesc').textContent = [familyName(d.family), d.gender].filter(Boolean).join(' · ');
+  $('#heroDesc').textContent = [familiesOf(d).map(familyName).filter(Boolean).join(', '), d.gender].filter(Boolean).join(' · ');
   $('.hero-btn').href = shopUrl();
 
   // Escenario: solo el Próximamente. La foto principal al centro y, si el dueño subió más fotos

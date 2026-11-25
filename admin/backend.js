@@ -96,6 +96,13 @@ async function saveImage(file) {
 }
 async function removeImage(url) {
   if (!url || !url.startsWith(PHOTO_PREFIX)) return;
+  // Una misma foto puede estar en un perfume y en un Destacado: solo se borra si ya nadie la usa.
+  // Por eso se llama DESPUÉS de guardar el cambio que la suelta.
+  const [{ data: rows }, { data: sc }] = await Promise.all([
+    supabase.from('products').select('data'),
+    supabase.from('settings').select('value').eq('key', 'showcase').maybeSingle(),
+  ]);
+  if (JSON.stringify(rows || []).includes(url) || JSON.stringify(sc?.value || []).includes(url)) return;
   await supabase.storage.from('fotos').remove([url.slice(PHOTO_PREFIX.length)]);
 }
 
@@ -175,8 +182,9 @@ const routes = [
       const existing = await getProduct(id);
       const url = photoUrl(body?.url, 'El link de la foto');
       if (!url) throw new ApiError('Pega el link de la foto.');
-      if (existing.photo !== url) await removeImage(existing.photo); // solo borra si era una foto subida
-      return saveProduct({ ...existing, photo: url });
+      const saved = await saveProduct({ ...existing, photo: url });
+      if (existing.photo !== url) await removeImage(existing.photo); // solo borra si era subida y ya nadie la usa
+      return saved;
     },
   ],
   // Subir una foto suelta (para los perfumes de un set): devuelve su dirección.
@@ -198,8 +206,9 @@ const routes = [
     async ([id], _, form) => {
       const existing = await getProduct(id);
       const url = await saveImage(form?.get('photo'));
+      const saved = await saveProduct({ ...existing, photo: url });
       await removeImage(existing.photo);
-      return saveProduct({ ...existing, photo: url });
+      return saved;
     },
   ],
   [
@@ -207,8 +216,9 @@ const routes = [
     /^\/products\/([^/]+)\/photo$/,
     async ([id]) => {
       const existing = await getProduct(id);
+      const saved = await saveProduct({ ...existing, photo: null });
       await removeImage(existing.photo);
-      return saveProduct({ ...existing, photo: null });
+      return saved;
     },
   ],
 
@@ -218,7 +228,7 @@ const routes = [
     /^\/families$/,
     async () => {
       const [families, products, upcoming] = await Promise.all([getFamilies(), listProducts(), getSetting('upcoming')]);
-      return families.map((f) => ({ ...f, products: products.filter((p) => familiesOf(p).includes(f.id)).length, upcoming: upcoming?.family === f.id }));
+      return families.map((f) => ({ ...f, products: products.filter((p) => familiesOf(p).includes(f.id)).length, upcoming: familiesOf(upcoming).includes(f.id) }));
     },
   ],
   [
@@ -264,14 +274,18 @@ const routes = [
       if (!list.some((f) => f.id === id)) throw new ApiError('Esa familia no existe.', 404);
       if (list.length <= 1) throw new ApiError('Debe quedar al menos una familia.');
       const used = products.filter((p) => familiesOf(p).includes(id));
-      if (used.length || upcoming?.family === id) {
+      const inLaunch = familiesOf(upcoming).includes(id);
+      if (used.length || inLaunch) {
         const target = list.find((f) => f.id === body?.moveTo && f.id !== id);
         if (!target) throw new ApiError('Elige a qué familia pasan sus perfumes antes de borrarla.', 409);
         for (const p of used) {
           const next = [...new Set(familiesOf(p).map((f) => (f === id ? target.id : f)))];
           await saveProduct({ ...p, families: next, family: next[0] });
         }
-        if (upcoming?.family === id) await setSetting('upcoming', { ...upcoming, family: target.id });
+        if (inLaunch) {
+          const next = [...new Set(familiesOf(upcoming).map((f) => (f === id ? target.id : f)))];
+          await setSetting('upcoming', { ...upcoming, families: next, family: next[0] });
+        }
       }
       await setSetting('families', list.filter((f) => f.id !== id));
       return { ok: true };
@@ -427,8 +441,8 @@ const routes = [
       const list = (await getSetting('showcase')) || [];
       const current = list.find((x) => x.id === id);
       if (!current) throw new ApiError('Ese destacado no existe.', 404);
-      await removeImage(current.photo);
       await setSetting('showcase', list.filter((x) => x.id !== id));
+      await removeImage(current.photo);
       return { ok: true };
     },
   ],
@@ -440,9 +454,25 @@ const routes = [
       const current = list.find((x) => x.id === id);
       if (!current) throw new ApiError('Ese destacado no existe.', 404);
       const url = await saveImage(form?.get('photo'));
-      await removeImage(current.photo);
       const updated = { ...current, photo: url };
       await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      await removeImage(current.photo);
+      return updated;
+    },
+  ],
+  // Foto de un Destacado tomada de un perfume ya cargado o de un link.
+  [
+    'PUT',
+    /^\/showcase\/([^/]+)\/photo-url$/,
+    async ([id], body) => {
+      const list = (await getSetting('showcase')) || [];
+      const current = list.find((x) => x.id === id);
+      if (!current) throw new ApiError('Ese destacado no existe.', 404);
+      const url = photoUrl(body?.url, 'El link de la foto');
+      if (!url) throw new ApiError('Elige una foto.');
+      const updated = { ...current, photo: url };
+      await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      if (current.photo !== url) await removeImage(current.photo);
       return updated;
     },
   ],
@@ -453,9 +483,9 @@ const routes = [
       const list = (await getSetting('showcase')) || [];
       const current = list.find((x) => x.id === id);
       if (!current) throw new ApiError('Ese destacado no existe.', 404);
-      await removeImage(current.photo);
       const updated = { ...current, photo: null };
       await setSetting('showcase', list.map((x) => (x.id === id ? updated : x)));
+      await removeImage(current.photo);
       return updated;
     },
   ],

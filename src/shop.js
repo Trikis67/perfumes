@@ -7,6 +7,7 @@ import {
   categoryName,
   isSet,
   familiesOf,
+  searchProducts,
   families,
   $,
   $$,
@@ -38,12 +39,15 @@ $('#fFamilia').insertAdjacentHTML('beforeend', usedFamilies.map((f) => `<option 
 // Lee los filtros de la dirección y los pone en el formulario (ignora valores que no existen).
 // Nota (por ejemplo ?nota=Green Apple): viene de tocar una etiqueta en el detalle de un perfume.
 let nota = '';
+// Búsqueda (?q=...): viene del buscador de la barra.
+let busca = '';
 const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const hasNote = (p, n) => ['top', 'heart', 'base'].some((k) => (p.notes?.[k] || []).some((x) => norm(x) === norm(n)));
 
 function readUrl() {
   const q = new URLSearchParams(location.search);
   nota = (q.get('nota') || '').slice(0, 60);
+  busca = (q.get('q') || '').slice(0, 80);
   for (const name of FIELDS) {
     const sel = form.elements[name];
     let v = q.get(name) || '';
@@ -51,9 +55,10 @@ function readUrl() {
     sel.value = [...sel.options].some((o) => o.value === v) ? v : '';
   }
 }
-const state = () => ({ ...Object.fromEntries(FIELDS.map((n) => [n, form.elements[n].value])), nota });
+const state = () => ({ ...Object.fromEntries(FIELDS.map((n) => [n, form.elements[n].value])), nota, q: busca });
 
 function titleFor(s) {
+  if (s.q) return `Resultados para "${s.q}"`;
   if (s.nota) return `Con ${s.nota}`;
   if (s.marca) return brandName(s.marca);
   if (s.categoria) return categoryName(s.categoria);
@@ -68,6 +73,8 @@ function titleFor(s) {
 
 function render() {
   const s = state();
+  const found = s.q ? searchProducts(s.q) : null;
+  const ids = found ? new Set(found.results.map((p) => p.id)) : null;
   const [min, max] = (s.precio || '-').split('-').map((v) => (v === '' ? null : Number(v)));
   let list = products.filter(
     (p) =>
@@ -78,9 +85,12 @@ function render() {
       (!s.para || p.gender === s.para || p.gender === 'Unisex') &&
       (!s.familia || familiesOf(p).includes(s.familia)) &&
       (!s.nota || hasNote(p, s.nota)) &&
+      (!ids || ids.has(p.id)) &&
       (min == null || minPrice(p) >= min) &&
       (max == null || minPrice(p) <= max),
   );
+  // Con búsqueda y sin otro orden, primero lo que más se parece.
+  if (found && !s.orden) list = found.results.filter((p) => list.includes(p));
   if (s.orden === 'precio-asc') list = [...list].sort((a, b) => minPrice(a) - minPrice(b));
   if (s.orden === 'precio-desc') list = [...list].sort((a, b) => minPrice(b) - minPrice(a));
   if (s.orden === 'nombre') list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -93,10 +103,17 @@ function render() {
   document.title = `${title} · Olorosos`;
   $('#shopCount').textContent = `${list.length} ${list.length === 1 ? 'perfume' : 'perfumes'}`;
   $('#gridEmpty').hidden = list.length > 0;
-  const filtered = !!s.nota || FIELDS.some((n) => n !== 'orden' && s[n]);
+  const filtered = !!s.q || !!s.nota || FIELDS.some((n) => n !== 'orden' && s[n]);
   const chip = $('#notaChip');
   chip.hidden = !s.nota;
   if (s.nota) $('span', chip).textContent = `Nota: ${s.nota}`;
+  $('#qChip').hidden = !s.q;
+  if (s.q) $('span', $('#qChip')).textContent = `Búsqueda: ${s.q}`;
+  // Sin resultados: sugerencias de lo que pudo haber querido buscar.
+  const sug = found && !list.length ? found.suggestions : [];
+  $('#gridSuggest').innerHTML = sug.length
+    ? `<p>¿Quisiste decir…?</p><div class="search-chips">${sug.map((x) => `<a class="search-chip" href="?q=${encodeURIComponent(x.label)}">${esc(x.label)}<small>${esc(x.kind)}</small></a>`).join('')}</div>`
+    : '';
   $('#clearFilters').hidden = !filtered;
   $$('.filters .select').forEach((l) => l.classList.toggle('is-set', !!$('select', l).value && $('select', l).name !== 'orden'));
 }
@@ -114,6 +131,7 @@ form.addEventListener('submit', (e) => e.preventDefault());
 const clear = () => {
   FIELDS.forEach((n) => (form.elements[n].value = ''));
   nota = '';
+  busca = '';
   syncUrl();
   swap(render);
 };
@@ -134,6 +152,13 @@ document.addEventListener('click', (e) => {
 });
 
 $('#shopCount').insertAdjacentHTML('afterend', '<button class="nota-chip" id="notaChip" type="button" hidden><span></span><i aria-hidden="true">×</i></button>');
+$('#shopCount').insertAdjacentHTML('afterend', '<button class="nota-chip" id="qChip" type="button" hidden><span></span><i aria-hidden="true">×</i></button>');
+$('#qChip').addEventListener('click', () => {
+  busca = '';
+  syncUrl();
+  swap(render);
+});
+$('#gridEmpty').insertAdjacentHTML('afterbegin', '<div class="grid-suggest" id="gridSuggest"></div>');
 $('#notaChip').addEventListener('click', () => {
   nota = '';
   syncUrl();

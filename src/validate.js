@@ -170,12 +170,20 @@ export function cleanUpcoming(input, existing, { families, brands }) {
   const launch = new Date(input.launch);
   if (Number.isNaN(launch.getTime())) throw new ValidationError('La fecha de lanzamiento no es válida.');
   const textColor = input.textColor === undefined ? (existing.textColor ?? null) : input.textColor ? color(input.textColor) : null;
+  // Varias familias, igual que en los perfumes.
+  const familyIds = new Set(families.map((f) => f.id));
+  const asked = Array.isArray(input.families) ? input.families : input.family ? [input.family] : null;
+  const famList = asked ? [...new Set(asked.filter(Boolean))] : familiesOf(existing);
+  if (famList.some((id) => !familyIds.has(id))) throw new ValidationError('Una de las familias no es válida.');
+  if (famList.length > 5) throw new ValidationError('Elige máximo 5 familias.');
+  if (asked && !famList.length) throw new ValidationError('Elige al menos una familia.');
   return {
     ...existing,
     name: text(input.name, 'el nombre', { min: 2, max: 60 }),
     edition: text(input.edition, 'el texto de la etiqueta', { max: 60 }),
     brand: brandId(input.brand, brands, existing.brand ?? null),
-    family: oneOf(input.family, new Set(families.map((f) => f.id)), 'La familia', existing.family),
+    families: famList,
+    family: famList[0] || existing.family || null,
     gender: oneOf(input.gender, GENDERS, 'El género', existing.gender),
     description: text(input.description, 'la descripción', { max: 400 }),
     notes: notes(input.notes),

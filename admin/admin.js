@@ -630,7 +630,11 @@ async function renderLaunch(view) {
           <div class="field"><label for="lEdition">Texto de la etiqueta</label><input id="lEdition" name="edition" value="${esc(u.edition)}" maxlength="60" placeholder="Llega en diciembre"></div>
           <div class="field"><label for="lLaunch">Fecha y hora del lanzamiento</label><input id="lLaunch" type="datetime-local" name="launch" value="${toLocalInput(u.launch)}" required></div>
           <div class="field"><label for="lBrand">Marca</label>${creatableSelect('brand', { id: 'lBrand', name: 'brand', value: u.brand })}</div>
-          <div class="field"><label for="lFamily">Familia</label>${creatableSelect('family', { id: 'lFamily', name: 'family', value: u.family })}</div>
+          <div class="field full">
+            <span class="label" id="famLabel">Familias</span>
+            <span class="hint">Marca todas las que tenga (hasta 5). Si falta una, créala con "+ Nueva familia" y queda guardada.</span>
+            ${familyPicker(familiesOf(u))}
+          </div>
           <div class="field"><label for="lGender">Para</label><select id="lGender" name="gender">${genderOptions(u.gender)}</select></div>
           <div class="field full"><label for="lDesc">Descripción</label><textarea id="lDesc" name="description" maxlength="400">${esc(u.description)}</textarea><span class="counter"></span></div>
           ${notesFields(u.notes)}
@@ -1456,12 +1460,29 @@ async function openSlideEditor(slide, onChange) {
         <label class="btn btn-primary btn-sm file-btn"><span id="scPhotoLabel"></span><input type="file" accept="image/*" id="scPhoto" aria-label="Elegir foto"></label>
         <button type="button" class="btn btn-ghost btn-sm" id="scRemovePhoto">Quitar foto</button>
       </div>
-      <p class="hint" style="margin:6px 0 18px">Se ve mejor una foto del frasco <strong>sin fondo</strong> (PNG).</p>
+      <p class="hint" style="margin:6px 0 12px">Se ve mejor una foto del frasco <strong>sin fondo</strong> (PNG).</p>
+      <div class="fields sc-photo-from">
+        <div class="field">
+          <label for="scFromProduct">O usa la foto de un perfume ya cargado</label>
+          <select id="scFromProduct">
+            <option value="">Elegir perfume…</option>
+            ${allProducts
+              .filter((p) => p.photo)
+              .map((p) => `<option value="${esc(p.id)}">${esc(p.name)}${brandName(p.brand) ? ` · ${esc(brandName(p.brand))}` : ''}</option>`)
+              .join('')}
+          </select>
+          ${allProducts.some((p) => p.photo) ? '' : '<span class="hint">Todavía ningún perfume tiene foto.</span>'}
+        </div>
+        <div class="field">
+          <label for="scLinkUrl">O pega el link de una imagen</label>
+          <div class="photo-link"><input type="url" id="scLinkUrl" inputmode="url" placeholder="https://…/foto.png" autocomplete="off"><button type="button" class="btn btn-primary btn-sm" id="scLinkUse">Usar</button></div>
+        </div>
+      </div>
       <div class="fields">
         <div class="field full">
           <label for="scWord">Palabra de fondo</label>
           <input id="scWord" name="word" value="${esc(x.word)}" maxlength="40" required>
-          <span class="hint">Se escribe grande; si es larga sigue en la línea de abajo, detrás del frasco. Para cortar la línea donde quieras usa una barra: <strong>nuevos / ingresos</strong></span>
+          <span class="hint">Se escribe grande detrás del frasco y se acomoda sola: si son varias palabras, se reparten en líneas parejas. Para elegir tú dónde cortar usa una barra: <strong>nuevos / ingresos</strong></span>
         </div>
         <div class="field full">
           <span class="label">Tipo de letra</span>
@@ -1509,9 +1530,10 @@ async function openSlideEditor(slide, onChange) {
     return { word: d.word, font: d.font, background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
   };
   let pendingUrl = null;
+  let pendingLink = null; // foto de un perfume ya cargado o por link, en un destacado nuevo (se guarda al crearlo)
   function draw() {
     const d = read();
-    const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : photo;
+    const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : pendingLink || photo;
     $('#scPreview', sheet).innerHTML = slideHTML({ ...d, word: d.word || ' ', photo: src }, { placeholder: scPlaceholder });
     $('#scPhotoLabel', sheet).textContent = src ? 'Cambiar foto' : 'Subir foto';
     $('#scRemovePhoto', sheet).hidden = !src;
@@ -1522,7 +1544,63 @@ async function openSlideEditor(slide, onChange) {
   form.addEventListener('input', draw);
   form.addEventListener('change', draw);
   const baseline = JSON.stringify(read());
-  const dirty = () => pendingFile !== null || JSON.stringify(read()) !== baseline;
+  const dirty = () => pendingFile !== null || pendingLink !== null || JSON.stringify(read()) !== baseline;
+
+  // Usar una foto que ya existe (de un perfume del catálogo o de un link).
+  async function useExistingPhoto(url, btn) {
+    if (isNew) {
+      pendingFile = null;
+      pendingLink = url;
+      draw();
+      fillSuggestions($('#scColors', sheet), url);
+      return true;
+    }
+    return withLoading(btn, async () => {
+      try {
+        photo = (await api(`/api/admin/showcase/${encodeURIComponent(x.id)}/photo-url`, { method: 'PUT', body: { url } })).photo;
+        draw();
+        fillSuggestions($('#scColors', sheet), photo);
+        onChange();
+        toast('Foto actualizada');
+        return true;
+      } catch (err) {
+        toast(err.message, true);
+        return false;
+      }
+    });
+  }
+  $('#scFromProduct', sheet).addEventListener('change', async (e) => {
+    const p = allProducts.find((y) => y.id === e.target.value);
+    if (!p) return;
+    const ok = await useExistingPhoto(p.photo, e.target);
+    // Si la tarjeta no llevaba a ningún lado, ahora lleva a ese perfume.
+    const link = $('#scLink', sheet);
+    if (ok && link.value === 'none') {
+      link.value = `product:${p.id}`;
+      draw();
+      toast(`Foto de ${p.name}. Al tocar la tarjeta llevará a ese perfume.`);
+    }
+    e.target.value = '';
+  });
+  $('#scLinkUse', sheet).addEventListener('click', async (e) => {
+    const input = $('#scLinkUrl', sheet);
+    const url = input.value.trim();
+    if (!/^https:\/\/\S+$/.test(url)) return toast('Pega un link que empiece con https://', true);
+    const loads = await new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res(true);
+      img.onerror = () => res(false);
+      img.src = url;
+    });
+    if (!loads) return toast('Ese link no muestra una imagen. Copia la dirección de la imagen (clic derecho → "Copiar dirección de imagen").', true);
+    if (await useExistingPhoto(url, e.currentTarget)) input.value = '';
+  });
+  $('#scLinkUrl', sheet).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      $('#scLinkUse', sheet).click();
+    }
+  });
 
   $('#scPhoto', sheet).addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -1530,6 +1608,7 @@ async function openSlideEditor(slide, onChange) {
     if (!file) return;
     if (isNew) {
       pendingFile = file;
+      pendingLink = null;
       pendingUrl = null;
       draw();
       return;
@@ -1549,8 +1628,9 @@ async function openSlideEditor(slide, onChange) {
     });
   });
   $('#scRemovePhoto', sheet).addEventListener('click', async () => {
-    if (pendingFile) {
+    if (pendingFile || pendingLink) {
       pendingFile = null;
+      pendingLink = null;
       return draw();
     }
     if (!(await confirmDialog({ title: '¿Quitar la foto?', text: 'Sin foto, esta tarjeta no aparece en la tienda.', ok: 'Quitar', danger: true }))) return;
@@ -1575,6 +1655,10 @@ async function openSlideEditor(slide, onChange) {
           fd.append('photo', pendingFile);
           saved = await api(`/api/admin/showcase/${encodeURIComponent(saved.id)}/photo`, { method: 'POST', form: fd });
           pendingFile = null;
+        }
+        if (pendingLink) {
+          saved = await api(`/api/admin/showcase/${encodeURIComponent(saved.id)}/photo-url`, { method: 'PUT', body: { url: pendingLink } });
+          pendingLink = null;
         }
         await onChange();
         toast(saved.photo ? 'Guardado. Ya está en la tienda.' : 'Guardado. Sube una foto para que aparezca en la tienda.');
