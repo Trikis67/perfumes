@@ -2401,3 +2401,100 @@ a {
 [data-src][hidden] {
   display: none !important;
 }
+/* ---------- Fragrantica ---------- */
+.frag-import {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.frag-help {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.frag-box {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(22, 48, 42, 0.05);
+  animation: pop 220ms var(--ease-out) both;
+}
+.frag-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.frag-text {
+  width: 100%;
+  min-height: 70px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font: inherit;
+}
+.frag-list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.frag-list label {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--white);
+  cursor: pointer;
+}
+.frag-list i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.frag-list span {
+  font-weight: 500;
+}
+.frag-list small {
+  grid-column: 3;
+  font-size: 12px;
+  color: var(--muted);
+}
+.frag-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.frag-install {
+  margin-top: 28px;
+}
+.frag-steps {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.bookmarklet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0 4px;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: var(--night);
+  color: #fff;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: grab;
+}
+.bookmarklet::before {
+  content: '★';
+  color: var(--gold-soft);
+}

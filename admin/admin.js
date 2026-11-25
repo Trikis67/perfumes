@@ -4,6 +4,7 @@ import { slideHTML, WORD_POSITIONS, WORD_SIZES, MAX_LINEUP } from '../src/showca
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 import { setVisualHTML, isSet } from '../src/setvisual.js';
 import { RULES, ruleText, categoryMatcher } from '../src/categories.js';
+import { BOOKMARKLET, parsePaste, spanishName, matchFamily } from './fragrantica.js';
 import { bottleSVG } from '../src/bottle.js';
 
 // Familias olfativas: vienen del servidor. Se crean en la pestaña Catálogo o al momento, desde cada perfume.
@@ -381,6 +382,103 @@ function picker(kind, selected = []) {
   </div>`;
 }
 const familyPicker = (selected) => picker('family', selected);
+
+/* ---------- Pegar de Fragrantica: los acordes principales se vuelven familias ---------- */
+async function readFragrantica(fieldBox) {
+  const box = $('.frag-box', fieldBox);
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    /* el navegador no dejó leer: se pega a mano */
+  }
+  const data = parsePaste(text);
+  if (data) return showFragrantica(fieldBox, data);
+  box.hidden = false;
+  box.innerHTML = `
+    <p class="frag-title">Pega aquí lo que copiaste de Fragrantica</p>
+    <textarea rows="3" class="frag-text" placeholder="Toca aquí y pega (Ctrl+V)"></textarea>
+    <div class="frag-actions"><button type="button" class="btn btn-primary btn-sm" data-frag-read>Leer</button><button type="button" class="btn btn-ghost btn-sm" data-frag-cancel>Cancelar</button></div>`;
+  $('.frag-text', box).focus();
+}
+function showFragrantica(fieldBox, data) {
+  const box = $('.frag-box', fieldBox);
+  // Los 5 más importantes (las barras más largas de Fragrantica).
+  const top = [...data.acordes].sort((a, b) => b.weight - a.weight).slice(0, 5);
+  const rows = top.map((a) => {
+    const name = spanishName(a.name);
+    const found = matchFamily(name, families);
+    return { name, color: a.color, found };
+  });
+  box.hidden = false;
+  box._rows = rows;
+  box.innerHTML = `
+    <p class="frag-title">De Fragrantica${data.perfume ? `: <strong>${esc(data.perfume)}</strong>` : ''}</p>
+    <ul class="frag-list">${rows
+      .map(
+        (r, i) => `<li><label><input type="checkbox" data-frag-row="${i}" checked><i style="--c:${esc(r.color || '#B58A4C')}"></i><span>${esc(r.name)}</span>
+        <small>${r.found ? `usa tu familia <strong>${esc(r.found.name)}</strong>` : 'familia nueva (se guarda)'}</small></label></li>`,
+      )
+      .join('')}</ul>
+    <p class="hint">Se marcan estas familias en el perfume (las que tenía se reemplazan). Puedes quitar las que no quieras.</p>
+    <div class="frag-actions"><button type="button" class="btn btn-primary btn-sm" data-frag-apply>Marcar estas familias</button><button type="button" class="btn btn-ghost btn-sm" data-frag-cancel>Cancelar</button></div>`;
+}
+async function applyFragrantica(fieldBox, btn) {
+  const box = $('.frag-box', fieldBox);
+  const rows = (box._rows || []).filter((_, i) => $(`[data-frag-row="${i}"]`, box)?.checked);
+  if (!rows.length) return toast('Marca al menos una.', true);
+  await withLoading(btn, async () => {
+    try {
+      const ids = [];
+      for (const r of rows) {
+        if (r.found) {
+          ids.push(r.found.id);
+          continue;
+        }
+        // Si ya se creó en esta misma pasada (dos acordes con el mismo nombre), se reutiliza.
+        const again = matchFamily(r.name, families);
+        if (again && norm(again.name) === norm(r.name)) {
+          ids.push(again.id);
+          continue;
+        }
+        const created = await api('/api/admin/families', { method: 'POST', body: { name: r.name, text: '', color: r.color || CREATABLE.family.body(r.name).color } });
+        await loadFamilies();
+        ids.push(created.id);
+      }
+      const picks = $('.family-picks[data-kind="family"]', fieldBox);
+      picks.outerHTML = familyPicker([...new Set(ids)]);
+      box.hidden = true;
+      box.innerHTML = '';
+      fieldBox.dispatchEvent(new Event('input', { bubbles: true }));
+      toast('Familias de Fragrantica marcadas. Toca Guardar para que queden en el perfume.');
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+const norm = (s) =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+document.addEventListener('click', (e) => {
+  const field = e.target.closest('.field');
+  if (!field) return;
+  if (e.target.closest('[data-frag-paste]')) readFragrantica(field);
+  if (e.target.closest('[data-frag-cancel]')) {
+    const box = $('.frag-box', field);
+    box.hidden = true;
+    box.innerHTML = '';
+  }
+  if (e.target.closest('[data-frag-read]')) {
+    const data = parsePaste($('.frag-text', field).value);
+    if (!data) return toast('No reconocí ese texto. Usa el botón "Copiar a Olorosos" en la página del perfume en Fragrantica.', true);
+    showFragrantica(field, data);
+  }
+  const apply = e.target.closest('[data-frag-apply]');
+  if (apply) applyFragrantica(field, apply);
+});
 const categoryPicker = (selected) => picker('category', selected);
 const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
 const categoriesOf = (p) => (Array.isArray(p?.categories) && p.categories.length ? p.categories : p?.category ? [p.category] : []);
@@ -967,6 +1065,11 @@ function openProductEditor(product, onChange, allProducts = []) {
           <span class="label" id="famLabel">Familias</span>
           <span class="hint">Marca todas las que tenga este perfume (hasta 5). Si falta una, créala con "+ Nueva familia" y queda guardada.</span>
           ${familyPicker(familiesOf(p))}
+          <div class="frag-import">
+            <button type="button" class="btn btn-ghost btn-sm" data-frag-paste>Pegar de Fragrantica</button>
+            <a href="#familias" class="frag-help" data-close>¿Cómo funciona?</a>
+          </div>
+          <div class="frag-box" hidden></div>
         </div>
         <div class="field full set-editor" data-for="set">
           <span class="label">Perfumes del set</span>
@@ -1808,6 +1911,19 @@ async function renderFamilies(view) {
     </div>
     <div class="plist" id="flist"></div>
     <p class="help" style="margin-top:14px;font-size:13px;color:var(--muted)">Usa las flechas para cambiar el orden en que aparecen en la tienda.</p>
+
+    <section class="card frag-install" id="fragrantica">
+      <h2>Familias desde Fragrantica</h2>
+      <p class="help">Copia los "acordes principales" de un perfume de Fragrantica y márcalos como familias con un toque.</p>
+      <ol class="frag-steps">
+        <li><strong>Instala el botón (una sola vez por computadora):</strong> muestra la barra de marcadores de Chrome (Ctrl + Shift + B) y <strong>arrastra</strong> este botón hasta ella:
+          <a class="bookmarklet" href="${esc(BOOKMARKLET)}" onclick="event.preventDefault(); alert('Arrástrame a la barra de marcadores (no hace falta hacer clic aquí).');">Copiar a Olorosos</a>
+        </li>
+        <li>Abre el perfume en <strong>fragrantica.es</strong> o <strong>fragrantica.com</strong> y toca <strong>Copiar a Olorosos</strong> en tu barra de marcadores.</li>
+        <li>En este panel abre el perfume y, en Familias, toca <strong>Pegar de Fragrantica</strong>. Se toman los 5 acordes principales: los que ya tengas se reutilizan y los nuevos se crean y quedan guardados.</li>
+      </ol>
+      <p class="help">¿Sin el botón? También puedes copiar a mano la lista de acordes (uno por línea) y pegarla en "Pegar de Fragrantica".</p>
+    </section>
   </div>`;
 
   function drawBrands() {

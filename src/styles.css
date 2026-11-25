@@ -3387,3 +3387,44 @@ a.pill {
     transform: perspective(400px) translateZ(18px);
   }
 }
+/* Categorías y familias separadas en el detalle */
+.tag-groups {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+}
+.tag-group {
+  display: grid;
+  gap: 6px;
+}
+.tag-group-title {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tag-group .pills {
+  margin: 0;
+}
+/* Categoría: etiqueta sobria, blanca con borde fino y un ícono de etiqueta (no de colores como las familias) */
+.pill.pill-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 10px;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+@media (hover: hover) {
+  a.pill.pill-cat:hover {
+    background: var(--ink);
+    color: var(--white);
+  }
+}

@@ -249,10 +249,17 @@ export function openModal(id) {
   ];
   const colors = shuffled(PILL_COLORS);
   $('#modalTags')?.remove();
+  // Categorías y familias van separadas: las categorías en etiquetas sobrias (sin color), las familias de colores.
+  const cats = tags.filter(([kind]) => kind === 'Categoría');
+  const fams = tags.filter(([kind]) => kind === 'Familia');
+  const group = (title, list, html) => (list.length ? `<div class="tag-group"><span class="tag-group-title">${title}</span><ul class="pills">${list.map(html).join('')}</ul></div>` : '');
   if (tags.length)
     $('#modalMeta').insertAdjacentHTML(
       'afterend',
-      `<ul class="pills" id="modalTags">${tags.map(([kind, n, href], i) => `<li><a class="pill" style="${pillStyle(colors[i % colors.length])}" href="${esc(href)}" title="Ver todos: ${kind} ${esc(n)}">${esc(n)}</a></li>`).join('')}</ul>`,
+      `<div class="tag-groups" id="modalTags">
+        ${group('Categorías', cats, ([, n, href]) => `<li><a class="pill pill-cat" href="${esc(href)}" title="Ver todos: ${esc(n)}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-6.8 6.8a1 1 0 0 1-1.4 0Z"/><circle cx="8" cy="8" r="1.4"/></svg>${esc(n)}</a></li>`)}
+        ${group('Familias', fams, ([, n, href], i) => `<li><a class="pill" style="${pillStyle(colors[i % colors.length])}" href="${esc(href)}" title="Ver todos: ${esc(n)}">${esc(n)}</a></li>`)}
+      </div>`,
     );
   $('#modalDesc').textContent = p.description;
   // Review: recuadro para tocar (no se muestra el link). Sin link, no aparece nada.
