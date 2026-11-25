@@ -2501,3 +2501,41 @@ a {
 .cat-add {
   grid-template-columns: minmax(0, 1fr) auto;
 }
+
+/* =========================================================
+   Hojas de edición en teléfono (iPhone/Safari)
+   Safari dejaba en 0 de alto la parte del medio (flex: 1 = "alto base 0" sin alto fijo del contenedor):
+   solo se veían el título y "Guardar cambios". Ahora la parte del medio usa el alto de su contenido
+   y, si no cabe, se desplaza dentro de la hoja.
+   ========================================================= */
+.sheet-head,
+.sheet-foot {
+  flex: none;
+}
+.sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 899px) {
+  .sheet {
+    max-height: calc(100svh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+  /* Con muy poco contenido la hoja no se aplasta: al menos ocupa media pantalla */
+  .sheet[open] {
+    min-height: min(55dvh, 520px);
+  }
+  .sheet-head h2 {
+    font-size: 22px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sheet-body {
+    padding: 14px 16px 20px;
+  }
+  .sheet-foot {
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+}
