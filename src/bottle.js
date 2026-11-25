@@ -69,7 +69,7 @@ export function shade(hex, amt) {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-export function bottleSVG({ liquid = '#C4862C', shape = 'classic', cap = 'gold', label = 'ÁNIMA', fill = 0.78 } = {}) {
+export function bottleSVG({ liquid = '#C4862C', shape = 'classic', cap = 'gold', label = 'OLOROSOS', fill = 0.78 } = {}) {
   const id = `b${++uid}`;
   const s = SHAPES[shape] || SHAPES.classic;
   const c = CAPS[cap] || CAPS.gold;
@@ -140,7 +140,7 @@ export function bottleSVG({ liquid = '#C4862C', shape = 'classic', cap = 'gold',
       ${highlights}
     </g>
     <path d="${s.path}" fill="none" stroke="#fff" stroke-opacity="0.75" stroke-width="1.5"/>
-    <text x="100" y="${midY}" text-anchor="middle" font-family="'Bodoni Moda', serif" font-size="11" letter-spacing="4" fill="#fff" fill-opacity="0.82">${label}</text>
+    <text x="100" y="${midY}" text-anchor="middle" font-family="'Bodoni Moda', serif" font-size="${label.length > 6 ? 9 : 11}" letter-spacing="${label.length > 6 ? 2 : 4}" fill="#fff" fill-opacity="0.82">${label}</text>
   </g>
 </svg>`;
 }

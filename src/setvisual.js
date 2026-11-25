@@ -17,7 +17,8 @@ export function setVisualHTML(items = [], { lazy = true } = {}) {
       const inner = it.photo
         ? `<img class="product-photo" src="${esc(it.photo)}" alt="" ${lazy ? 'loading="lazy"' : ''} decoding="async">`
         : bottleSVG({ liquid: it.liquid || '#B58A4C', shape: SHAPES[i % SHAPES.length], cap: CAPS[i % CAPS.length], fill: 0.72 });
-      return `<span class="set-item" style="--d:${depth.toFixed(2)};--z:${10 - Math.round(depth * 2)}">${inner}</span>`;
+      // --o: posición respecto al centro (negativa a la izquierda), para abrirlos en abanico al pasar el mouse.
+      return `<span class="set-item" style="--d:${depth.toFixed(2)};--o:${(i - mid).toFixed(2)};--z:${10 - Math.round(depth * 2)}">${inner}</span>`;
     })
     .join('')}</span>`;
 }

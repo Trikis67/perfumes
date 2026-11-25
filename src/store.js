@@ -93,6 +93,7 @@ export function cardHTML(p) {
           ? `<p class="card-price">${fmt(minPrice(p))}<span>· Set de ${p.items.length}</span></p>`
           : `<p class="card-price">desde ${fmt(minPrice(p))}${hasMinis(p) ? '<span>· Decant</span>' : ''}</p>`
       }
+      ${p.inStock === false ? '<p class="card-stock">Agotado por ahora</p>' : ''}
       <button class="card-btn" data-open="${esc(p.id)}" tabindex="-1" aria-hidden="true">Ver perfume</button>
     </div>
   </article>`;
@@ -121,14 +122,14 @@ export function revealCards(root) {
 // Inclinación 3D suave de las fotos de las tarjetas siguiendo el mouse.
 if (!reduceMotion && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
   document.addEventListener('pointermove', (e) => {
-    const stage = e.target.closest?.('.card-stage');
+    const stage = e.target.closest?.('.card-stage, .rec-stage, .modal-visual, .cart-thumb');
     if (!stage) return;
     const r = stage.getBoundingClientRect();
     stage.style.setProperty('--tx', ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
     stage.style.setProperty('--ty', ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
   });
   document.addEventListener('pointerout', (e) => {
-    const stage = e.target.closest?.('.card-stage');
+    const stage = e.target.closest?.('.card-stage, .rec-stage, .modal-visual, .cart-thumb');
     if (stage && !stage.contains(e.relatedTarget)) {
       stage.style.setProperty('--tx', 0);
       stage.style.setProperty('--ty', 0);
@@ -145,8 +146,30 @@ export function swap(fn) {
 /* =========================================================
    Detalle del perfume
    ========================================================= */
+// Colores suaves para las etiquetas: [fondo, borde, letra].
+const PILL_COLORS = [
+  ['#E4F1EC', '#C3DDD2', '#2F5A4B'],
+  ['#F5E4E4', '#E5C4C4', '#6E3B3B'],
+  ['#F2E8D4', '#DECAA4', '#5E4A24'],
+  ['#ECE6F4', '#D2C6E5', '#4A3D66'],
+  ['#E3EDF5', '#C3D6E6', '#2F4A63'],
+  ['#F8E8DC', '#EBCDB6', '#6A4128'],
+  ['#EEF2DD', '#D5DEB2', '#4A5524'],
+  ['#F4E4EE', '#E3C3D6', '#653A55'],
+];
+const shuffled = (arr) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+const pillStyle = ([bg, line, ink]) => `--pill-bg:${bg};--pill-line:${line};--pill-ink:${ink}`;
+
 let modal;
 let current = null;
+let qty = 1; // cantidad elegida en el detalle
 
 export function openModal(id) {
   const p = productById[id];
@@ -156,15 +179,49 @@ export function openModal(id) {
   $('#modalVisual').innerHTML = visualFor(p, { lazy: false });
   $('#modalBrand').textContent = brandName(p.brand);
   $('#modalName').textContent = p.name;
-  $('#modalMeta').textContent = [isSet(p) ? 'Set de perfumes' : '', categoryName(p.category), p.gender, familiesOf(p).map(familyName).filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  // Existencias: punto verde si está listo para enviar; si está agotado no se puede agregar al carrito.
+  const soldOut = p.inStock === false;
+  $('#modalStock')?.remove();
+  $('#modalName').insertAdjacentHTML(
+    'afterend',
+    `<p class="stock ${soldOut ? 'is-out' : 'is-in'}" id="modalStock"><i aria-hidden="true"></i>${soldOut ? 'Agotado por ahora' : 'En existencia, listo para enviar'}</p>`,
+  );
+  qty = 1;
+  $('#modalQty').textContent = '1';
+  $('.qty-pick', modal).hidden = soldOut;
+  $('#modalAdd').disabled = soldOut;
+  $('#modalAdd').textContent = soldOut ? 'Agotado' : 'Agregar al carrito';
+  $('#modalOrder').textContent = soldOut ? 'Preguntar cuándo vuelve por WhatsApp' : 'Pedir solo este por WhatsApp';
+  $('#modalMeta').textContent = [isSet(p) ? 'Set de perfumes' : '', p.gender].filter(Boolean).join(' · ');
+  // Categoría y familias como etiquetas de colores (colores suaves elegidos al azar cada vez).
+  // Cada etiqueta lleva a la Tienda con todos los perfumes que la tienen.
+  const tags = [
+    ...(categoryName(p.category) ? [['Categoría', categoryName(p.category), shopUrl({ categoria: p.category })]] : []),
+    ...familiesOf(p)
+      .filter((id) => familyName(id))
+      .map((id) => ['Familia', familyName(id), shopUrl({ familia: id })]),
+  ];
+  const colors = shuffled(PILL_COLORS);
+  $('#modalTags')?.remove();
+  if (tags.length)
+    $('#modalMeta').insertAdjacentHTML(
+      'afterend',
+      `<ul class="pills" id="modalTags">${tags.map(([kind, n, href], i) => `<li><a class="pill" style="${pillStyle(colors[i % colors.length])}" href="${esc(href)}" title="Ver todos: ${kind} ${esc(n)}">${esc(n)}</a></li>`).join('')}</ul>`,
+    );
   $('#modalDesc').textContent = p.description;
+  // Notas como etiquetas: cada nivel con su propio color, también al azar.
   $('#modalNotes').innerHTML = [
     ['Al aplicarlo', p.notes?.top],
     ['Después de un rato', p.notes?.heart],
     ['Al final del día', p.notes?.base],
   ]
     .filter(([, n]) => n?.length)
-    .map(([t, n]) => `<div><dt>${t}</dt><dd>${esc(n.join(', '))}</dd></div>`)
+    .map(
+      ([t, n], i) =>
+        `<div><dt>${t}</dt><dd><ul class="pills">${n
+          .map((x) => `<li><a class="pill" style="${pillStyle(colors[(tags.length + i) % colors.length])}" href="${esc(shopUrl({ nota: x }))}" title="Ver todos los perfumes con ${esc(x)}">${esc(x)}</a></li>`)
+          .join('')}</ul></dd></div>`,
+    )
     .join('');
 
   modal.classList.toggle('is-set', isSet(p));
@@ -199,13 +256,20 @@ export function openModal(id) {
 function updateOrder() {
   const ml = Number($('input[name="size"]:checked', modal)?.value);
   const brand = brandName(current.brand);
+  const of = brand ? ` de ${brand}` : '';
+  if (current.inStock === false) {
+    $('#modalOrder').href = waLink(`Hola, ¿cuándo vuelve ${current.name}${of}?`);
+    return;
+  }
+  const n = qty > 1 ? `${qty} × ` : '';
+  const total = fmt(Math.round(current.prices[ml] * qty * 100) / 100);
   if (isSet(current)) {
     const list = current.items.map((it) => `${it.name} ${it.ml} ml`).join(', ');
-    $('#modalOrder').href = waLink(`Hola, quiero pedir el set ${current.name}${brand ? ` de ${brand}` : ''} (${list}) por ${fmt(current.prices[ml])}, con Shipping Protection. Mi ciudad es: `);
+    $('#modalOrder').href = waLink(`Hola, quiero pedir ${n}el set ${current.name}${of} (${list}) por ${total}, con Shipping Protection. Mi ciudad es: `);
     return;
   }
   const kindLabel = ml <= MINI_MAX_ML ? 'decant de ' : '';
-  $('#modalOrder').href = waLink(`Hola, quiero pedir ${kindLabel}${current.name}${brand ? ` de ${brand}` : ''} en ${ml} ml (${fmt(current.prices[ml])}), con Shipping Protection. Mi ciudad es: `);
+  $('#modalOrder').href = waLink(`Hola, quiero pedir ${n}${kindLabel}${current.name}${of} en ${ml} ml (${total}), con Shipping Protection. Mi ciudad es: `);
 }
 
 function closeModal() {
@@ -232,16 +296,58 @@ const protectionHTML = (open = false) => `
 
 let cart = null;
 
+// Al agregar: una copia del frasco vuela girando en 3D hasta la bolsa del carrito.
+export function flyToCart(fromEl) {
+  const target = $('#cartBtn');
+  if (reduceMotion || !fromEl || !target || !fromEl.animate) return;
+  const a = fromEl.getBoundingClientRect();
+  const b = target.getBoundingClientRect();
+  if (!a.width) return;
+  const size = Math.min(a.width, a.height, 220);
+  const ghost = document.createElement('div');
+  ghost.className = 'fly-ghost';
+  ghost.innerHTML = fromEl.innerHTML;
+  Object.assign(ghost.style, { left: `${a.left + (a.width - size) / 2}px`, top: `${a.top + (a.height - size) / 2}px`, width: `${size}px`, height: `${size}px` });
+  document.body.appendChild(ghost);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+  const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  ghost
+    .animate(
+      [
+        { transform: 'perspective(800px) translate3d(0,0,0) rotateY(0) scale(1)', opacity: 1 },
+        { transform: `perspective(800px) translate3d(${dx * 0.45}px, ${dy * 0.45 - 90}px, 120px) rotateY(200deg) scale(0.55)`, opacity: 1, offset: 0.55 },
+        { transform: `perspective(800px) translate3d(${dx}px, ${dy}px, 0) rotateY(360deg) scale(0.08)`, opacity: 0.4 },
+      ],
+      { duration: 900, easing: 'cubic-bezier(0.5, 0, 0.3, 1)' },
+    )
+    .finished.finally(() => ghost.remove());
+}
+
 function bindModal() {
   modal = $('#modal');
   // Antes del pedido: aviso de protección, "Agregar al carrito" y, como opción, pedir solo este por WhatsApp.
   const order = $('#modalOrder');
-  order.insertAdjacentHTML('beforebegin', `${protectionHTML(false)}<button class="btn btn-block" id="modalAdd" type="button">Agregar al carrito</button>`);
+  order.insertAdjacentHTML(
+    'beforebegin',
+    `${protectionHTML(false)}
+    <div class="qty-pick"><span>Cantidad</span><div class="cart-qty" role="group" aria-label="Cantidad">
+      <button type="button" data-mq="-1" aria-label="Quitar uno">−</button><span id="modalQty" aria-live="polite">1</span><button type="button" data-mq="1" aria-label="Agregar uno">+</button>
+    </div></div>
+    <button class="btn btn-block" id="modalAdd" type="button">Agregar al carrito</button>`,
+  );
   order.classList.add('btn-ghost');
-  order.textContent = 'Pedir solo este por WhatsApp';
+  $('.qty-pick', modal).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mq]');
+    if (!b) return;
+    qty = Math.max(1, Math.min(20, qty + Number(b.dataset.mq)));
+    $('#modalQty').textContent = qty;
+    updateOrder();
+  });
   $('#modalAdd').addEventListener('click', () => {
+    if (current.inStock === false) return;
     const ml = Number($('input[name="size"]:checked', modal)?.value);
-    cart?.add(current.id, ml);
+    flyToCart($('#modalVisual'));
+    cart?.add(current.id, ml, qty);
     closeModal();
   });
   $('#modalSizes').addEventListener('change', updateOrder);
@@ -411,6 +517,7 @@ export function initPage() {
     minPrice,
     sizesOf,
     familiesOf,
+    fly: flyToCart,
   });
   const year = $('#year');
   if (year) year.textContent = new Date().getFullYear();

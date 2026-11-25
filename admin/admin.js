@@ -130,7 +130,7 @@ function renderLogin() {
   app.innerHTML = `
   <main class="gate">
     <div class="gate-card">
-      <div class="gate-logo">Ánima</div>
+      <div class="gate-logo">Olorosos</div>
       <p class="gate-sub">Panel de administración</p>
       <div class="gate-key">${ICON.key}</div>
       <h1>Hola de nuevo</h1>
@@ -195,7 +195,7 @@ function renderShell() {
   app.innerHTML = `
   <div class="shell">
     <header class="topbar">
-      <a class="logo" href="#lanzamiento">Ánima<small>Panel</small></a>
+      <a class="logo" href="#lanzamiento">Olorosos<small>Panel</small></a>
       <div class="topbar-actions">
         <a class="icon-btn" href="../" target="_blank" rel="noopener" aria-label="Ver la tienda">${ICON.store}</a>
         <button class="icon-btn" id="logoutBtn" aria-label="Salir">${ICON.logout}</button>
@@ -851,7 +851,7 @@ async function renderProducts(view) {
         <button class="prow${p.visible ? '' : ' is-hidden'}" data-id="${esc(p.id)}" style="--liq:${esc(p.liquid)}">
           <span class="thumb${p.photo || isSet(p) ? ' has-photo' : ''}${isSet(p) ? ' is-set' : ''}">${visualFor(p)}</span>
           <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryName(p.category), familyNames(p)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
-          <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : !p.photo && !isSet(p) ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
+          <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : p.inStock === false ? '<span class="chip chip-muted">Agotado</span>' : !p.photo && !isSet(p) ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
         </button>`;
           })
           .join('')
@@ -895,6 +895,7 @@ function openProductEditor(product, onChange, allProducts = []) {
   const catalogForSet = allProducts.filter((x) => !isSet(x) && x.id !== p.id);
   let pendingFile = null;
   let pendingUrl = null;
+  let pendingLink = null; // foto por link en un perfume nuevo (se guarda al crearlo)
   let photo = p.photo;
   // Tamaños del perfume: se pueden agregar (comunes o a mano) y quitar.
   const COMMON_SIZES = [2, 5, 10, 30, 50, 75, 100, 125, 200];
@@ -921,17 +922,28 @@ function openProductEditor(product, onChange, allProducts = []) {
         <span class="thumb" id="pThumb"></span>
         <div class="btns">
           <label class="btn btn-primary btn-sm file-btn"><span id="photoLabel"></span><input type="file" accept="image/*" id="pPhoto" aria-label="Elegir foto"></label>
+          <button type="button" class="btn btn-ghost btn-sm" id="pLinkToggle">Usar link de una imagen</button>
+          <div class="photo-link" id="pLinkBox" hidden>
+            <input type="url" id="pLinkUrl" placeholder="https://…/foto.jpg" aria-label="Link de la foto" inputmode="url" autocomplete="off">
+            <button type="button" class="btn btn-primary btn-sm" id="pLinkUse">Usar</button>
+          </div>
           <button type="button" class="btn btn-ghost btn-sm" id="pRemovePhoto">Quitar foto</button>
-          <span class="hint" style="font-size:13px;color:var(--muted)">JPG, PNG o foto del teléfono. Se optimiza sola.</span>
+          <span class="hint" style="font-size:13px;color:var(--muted)">Sube una foto (JPG, PNG o del teléfono) o pega el link de una imagen.</span>
         </div>
       </div>
       <div id="pColors">
         ${colorPicker({ name: 'liquid', value: p.liquid, label: 'Color de fondo de su tarjeta', hint: 'Mira la foto de arriba y elige el tono que mejor la acompañe.', swatches: AURA_COLORS })}
       </div>
-      <label class="switch">
-        <span class="switch-text"><strong>Visible en la tienda</strong><span>Si lo apagas, el perfume se oculta pero no se borra.</span></span>
-        <input type="checkbox" name="visible" ${p.visible ? 'checked' : ''}><span class="switch-track"></span>
-      </label>
+      <div class="switch-pair">
+        <label class="switch">
+          <span class="switch-text"><strong>Visible en la tienda</strong><span>Si lo apagas, el perfume se oculta pero no se borra.</span></span>
+          <input type="checkbox" name="visible" ${p.visible ? 'checked' : ''}><span class="switch-track"></span>
+        </label>
+        <label class="switch">
+          <span class="switch-text"><strong><span class="stock-dot" aria-hidden="true"></span>En existencia, listo para enviar</strong><span>Si lo apagas, en la tienda sale como "Agotado por ahora" y no se puede agregar al carrito.</span></span>
+          <input type="checkbox" name="inStock" ${p.inStock !== false ? 'checked' : ''}><span class="switch-track"></span>
+        </label>
+      </div>
       <div class="fields">
         <div class="field full"><label for="pName">Nombre</label><input id="pName" name="name" value="${esc(p.name)}" maxlength="60" required></div>
         <div class="field full"><label for="pBrand">Marca</label>${creatableSelect('brand', { id: 'pBrand', name: 'brand', value: p.brand })}<span class="hint">Elige una que ya usaste o crea una nueva: queda guardada para los siguientes perfumes.</span></div>
@@ -1060,6 +1072,7 @@ function openProductEditor(product, onChange, allProducts = []) {
               : ''
           }
           <input data-k="name" data-i="${i}" value="${esc(it.name)}" maxlength="60" placeholder="Nombre del perfume ${i + 1}" aria-label="Nombre del perfume ${i + 1}">
+          <input data-k="photo" data-i="${i}" type="url" inputmode="url" value="${esc(it.ownPhoto ? '' : it.photo || '')}" placeholder="O pega el link de su foto (https://…)" aria-label="Link de la foto del perfume ${i + 1}" autocomplete="off">
           <div class="set-row-line">
             <div class="ml-input"><input data-k="ml" data-i="${i}" type="number" min="1" max="1000" inputmode="numeric" value="${esc(it.ml ?? '')}" aria-label="Mililitros del perfume ${i + 1}"><span>ml</span></div>
             <label class="set-color" title="Color del frasco (si no tiene foto)" style="--c:${esc(it.liquid || '#B58A4C')}"><input type="color" data-k="liquid" data-i="${i}" value="${esc((it.liquid || '#B58A4C').toLowerCase())}" aria-label="Color del perfume ${i + 1}"></label>
@@ -1088,6 +1101,11 @@ function openProductEditor(product, onChange, allProducts = []) {
     const i = Number(el.dataset.i);
     const it = items[i];
     const k = el.dataset.k;
+    if (k === 'photo') {
+      // Foto por link: se muestra al terminar de pegarla (evento change).
+      Object.assign(it, { photo: el.value.trim() || null, ownPhoto: false });
+      return;
+    }
     it[k] = k === 'ml' ? (el.value === '' ? '' : Number(el.value)) : k === 'liquid' ? el.value.toUpperCase() : el.value;
     if (k === 'liquid') {
       const lab = el.closest('.set-row').querySelector('.set-thumb');
@@ -1100,6 +1118,7 @@ function openProductEditor(product, onChange, allProducts = []) {
     drawSetPreview();
   });
   $('#setRows', sheet).addEventListener('change', async (e) => {
+    if (e.target.matches('[data-k="photo"]')) return renderItems();
     const copy = e.target.closest('[data-item-copy]');
     if (copy) {
       const it = items[Number(copy.dataset.itemCopy)];
@@ -1154,7 +1173,7 @@ function openProductEditor(product, onChange, allProducts = []) {
     const d = readForm(form);
     const thumb = $('#pThumb', sheet);
     if (!pendingFile) pendingUrl = null;
-    const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : photo;
+    const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : pendingLink || photo;
     thumb.classList.toggle('has-photo', !!src);
     thumb.parentElement.style.setProperty('--liq', d.liquid);
     $('#setPreview', sheet).style.setProperty('--liq', d.liquid);
@@ -1182,13 +1201,14 @@ function openProductEditor(product, onChange, allProducts = []) {
   $$('.tag-example', sheet).forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.tag === p.tag)));
   const snapshot = () => JSON.stringify([readForm(form), kindNow() === 'set' ? items : null]);
   let baseline = snapshot();
-  const dirty = () => pendingFile !== null || snapshot() !== baseline;
+  const dirty = () => pendingFile !== null || pendingLink !== null || snapshot() !== baseline;
 
   $('#pPhoto', sheet).addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (isNew) {
       pendingFile = file; // se sube después de crear el perfume
+      pendingLink = null;
       pendingUrl = null;
       drawThumb();
       return;
@@ -1211,7 +1231,56 @@ function openProductEditor(product, onChange, allProducts = []) {
     drawThumb();
   });
 
+  // Foto por link: se pega la dirección de una imagen de internet.
+  $('#pLinkToggle', sheet).addEventListener('click', () => {
+    const box = $('#pLinkBox', sheet);
+    box.hidden = !box.hidden;
+    if (!box.hidden) $('#pLinkUrl', sheet).focus();
+  });
+  $('#pLinkUrl', sheet).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      $('#pLinkUse', sheet).click();
+    }
+  });
+  $('#pLinkUse', sheet).addEventListener('click', async (e) => {
+    const url = $('#pLinkUrl', sheet).value.trim();
+    if (!/^https:\/\/\S+$/.test(url)) return toast('Pega un link que empiece con https://', true);
+    // Revisa que el link sea una imagen que se pueda ver.
+    const ok = await new Promise((res) => {
+      const img = new Image();
+      img.onload = () => res(true);
+      img.onerror = () => res(false);
+      img.src = url;
+    });
+    if (!ok) return toast('Ese link no muestra una imagen. Copia la dirección de la imagen (clic derecho → "Copiar dirección de imagen").', true);
+    if (isNew) {
+      pendingFile = null;
+      pendingLink = url;
+      $('#pLinkBox', sheet).hidden = true;
+      return drawThumb();
+    }
+    await withLoading(e.currentTarget, async () => {
+      try {
+        const updated = await api(`/api/admin/products/${encodeURIComponent(p.id)}/photo-url`, { method: 'PUT', body: { url } });
+        photo = updated.photo;
+        Object.assign(p, updated);
+        onChange(updated);
+        $('#pLinkBox', sheet).hidden = true;
+        $('#pLinkUrl', sheet).value = '';
+        toast('Foto actualizada');
+        drawThumb();
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+
   $('#pRemovePhoto', sheet).addEventListener('click', async () => {
+    if (pendingLink) {
+      pendingLink = null;
+      return drawThumb();
+    }
     if (pendingFile) {
       pendingFile = null;
       return drawThumb();
@@ -1241,6 +1310,10 @@ function openProductEditor(product, onChange, allProducts = []) {
           fd.append('photo', pendingFile);
           saved = await api(`/api/admin/products/${encodeURIComponent(saved.id)}/photo`, { method: 'POST', form: fd });
           pendingFile = null;
+        }
+        if (pendingLink && body.kind !== 'set') {
+          saved = await api(`/api/admin/products/${encodeURIComponent(saved.id)}/photo-url`, { method: 'PUT', body: { url: pendingLink } });
+          pendingLink = null;
         }
         onChange(saved);
         baseline = snapshot();

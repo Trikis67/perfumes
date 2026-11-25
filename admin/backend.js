@@ -4,7 +4,7 @@
 // aunque alguien cambie este código, sin ser admin no puede escribir nada.
 import { supabase, supabaseReady, PHOTO_PREFIX } from '../src/supabase.js';
 import { PANEL_EMAIL_DOMAIN } from '../src/config.js';
-import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE, familiesOf } from '../src/validate.js';
+import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE, familiesOf, photoUrl } from '../src/validate.js';
 import { SHOWCASE_FONTS } from '../src/fonts.js';
 
 export class ApiError extends Error {
@@ -165,6 +165,18 @@ const routes = [
       const keep = new Set(ownSetPhotos(saved));
       for (const url of ownSetPhotos(existing)) if (!keep.has(url)) await removeImage(url);
       return saved;
+    },
+  ],
+  // Foto del perfume por link (pegando la dirección de una imagen en internet).
+  [
+    'PUT',
+    /^\/products\/([^/]+)\/photo-url$/,
+    async ([id], body) => {
+      const existing = await getProduct(id);
+      const url = photoUrl(body?.url, 'El link de la foto');
+      if (!url) throw new ApiError('Pega el link de la foto.');
+      if (existing.photo !== url) await removeImage(existing.photo); // solo borra si era una foto subida
+      return saveProduct({ ...existing, photo: url });
     },
   ],
   // Subir una foto suelta (para los perfumes de un set): devuelve su dirección.

@@ -75,10 +75,11 @@ function categoryId(v, categories, fallback = null) {
 // Sets: de 2 a 6 perfumes, cada uno con su nombre, tamaño, color y foto propia (opcional).
 export const SET_MIN = 2;
 export const SET_MAX = 6;
-function photoUrl(v) {
+// Foto por link: debe ser una dirección https (por ejemplo la de una imagen en internet).
+export function photoUrl(v, what = 'La foto de un perfume del set') {
   if (v == null || v === '') return null;
-  const s = String(v);
-  if (s.length > 400 || !/^https:\/\/[^\s"'<>]+$/.test(s)) throw new ValidationError('La foto de un perfume del set no es válida.');
+  const s = String(v).trim();
+  if (s.length > 600 || !/^https:\/\/[^\s"'<>]+$/.test(s)) throw new ValidationError(`${what} no es un link válido. Debe empezar con https://`);
   return s;
 }
 function setItems(v) {
@@ -157,6 +158,8 @@ export function cleanProduct(input, existing, { families, brands, categories = [
     notes: notes(input.notes),
     prices: priceList,
     liquid: color(input.liquid, existing.liquid || '#B58A4C'),
+    // En existencia (listo para enviar) o agotado. Si no se dice nada, queda como estaba (por defecto, en existencia).
+    inStock: input.inStock === undefined ? existing.inStock !== false : !!input.inStock,
     shape: existing.shape || pickFromName(name, SHAPES),
     cap: existing.cap || pickFromName(`${name}·`, CAPS),
     photo: existing.photo ?? null,

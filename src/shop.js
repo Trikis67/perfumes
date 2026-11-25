@@ -36,8 +36,14 @@ const usedFamilies = families.filter((f) => products.some((p) => familiesOf(p).i
 $('#fFamilia').insertAdjacentHTML('beforeend', usedFamilies.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join(''));
 
 // Lee los filtros de la dirección y los pone en el formulario (ignora valores que no existen).
+// Nota (por ejemplo ?nota=Green Apple): viene de tocar una etiqueta en el detalle de un perfume.
+let nota = '';
+const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+const hasNote = (p, n) => ['top', 'heart', 'base'].some((k) => (p.notes?.[k] || []).some((x) => norm(x) === norm(n)));
+
 function readUrl() {
   const q = new URLSearchParams(location.search);
+  nota = (q.get('nota') || '').slice(0, 60);
   for (const name of FIELDS) {
     const sel = form.elements[name];
     let v = q.get(name) || '';
@@ -45,9 +51,10 @@ function readUrl() {
     sel.value = [...sel.options].some((o) => o.value === v) ? v : '';
   }
 }
-const state = () => Object.fromEntries(FIELDS.map((n) => [n, form.elements[n].value]));
+const state = () => ({ ...Object.fromEntries(FIELDS.map((n) => [n, form.elements[n].value])), nota });
 
 function titleFor(s) {
+  if (s.nota) return `Con ${s.nota}`;
   if (s.marca) return brandName(s.marca);
   if (s.categoria) return categoryName(s.categoria);
   if (s.tipo === 'decants') return 'Decants';
@@ -67,8 +74,10 @@ function render() {
       (!s.tipo || (s.tipo === 'decants' ? hasMinis(p) : s.tipo === 'sets' ? isSet(p) : hasFull(p))) &&
       (!s.categoria || p.category === s.categoria) &&
       (!s.marca || p.brand === s.marca) &&
-      (!s.para || p.gender === s.para) &&
+      // Unisex cuenta para ella y para él.
+      (!s.para || p.gender === s.para || p.gender === 'Unisex') &&
       (!s.familia || familiesOf(p).includes(s.familia)) &&
+      (!s.nota || hasNote(p, s.nota)) &&
       (min == null || minPrice(p) >= min) &&
       (max == null || minPrice(p) <= max),
   );
@@ -81,10 +90,13 @@ function render() {
   const title = titleFor(s);
   ($('#shopTitle .rv-in') || $('#shopTitle')).textContent = title;
   $('#crumbHere').textContent = title;
-  document.title = `${title} · Ánima`;
+  document.title = `${title} · Olorosos`;
   $('#shopCount').textContent = `${list.length} ${list.length === 1 ? 'perfume' : 'perfumes'}`;
   $('#gridEmpty').hidden = list.length > 0;
-  const filtered = FIELDS.some((n) => n !== 'orden' && s[n]);
+  const filtered = !!s.nota || FIELDS.some((n) => n !== 'orden' && s[n]);
+  const chip = $('#notaChip');
+  chip.hidden = !s.nota;
+  if (s.nota) $('span', chip).textContent = `Nota: ${s.nota}`;
   $('#clearFilters').hidden = !filtered;
   $$('.filters .select').forEach((l) => l.classList.toggle('is-set', !!$('select', l).value && $('select', l).name !== 'orden'));
 }
@@ -101,6 +113,7 @@ form.addEventListener('change', () => {
 form.addEventListener('submit', (e) => e.preventDefault());
 const clear = () => {
   FIELDS.forEach((n) => (form.elements[n].value = ''));
+  nota = '';
   syncUrl();
   swap(render);
 };
@@ -110,7 +123,7 @@ $('#clearFilters2').addEventListener('click', clear);
 // Los enlaces "Tienda" y "Decants" dentro de esta misma página solo cambian los filtros (sin recargar).
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="./"], a[href^="../tienda/"]');
-  if (!a) return;
+  if (!a || a.closest('dialog')) return; // desde el detalle se recarga la página para cerrarlo
   const url = new URL(a.href, location.href);
   if (url.pathname !== location.pathname) return;
   e.preventDefault();
@@ -118,6 +131,13 @@ document.addEventListener('click', (e) => {
   readUrl();
   swap(render);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+$('#shopCount').insertAdjacentHTML('afterend', '<button class="nota-chip" id="notaChip" type="button" hidden><span></span><i aria-hidden="true">×</i></button>');
+$('#notaChip').addEventListener('click', () => {
+  nota = '';
+  syncUrl();
+  swap(render);
 });
 
 readUrl();

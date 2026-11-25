@@ -1,6 +1,9 @@
 // Carrito: se guarda en el navegador del cliente y al final el pedido completo se envía por WhatsApp,
 // con la foto de cada producto en el carrito y el enlace a su foto en el mensaje.
+import { DESTINOS, ZONAS } from './guatemala.js';
+
 const KEY = 'anima-cart';
+const SHIP_KEY = 'anima-entrega'; // datos de entrega: se recuerdan en el navegador del cliente para su próxima compra
 const MAX_QTY = 20;
 const round2 = (n) => Math.round(Number(n) * 100) / 100;
 
@@ -21,7 +24,7 @@ const shuffle = (arr) => {
 };
 function pickRecommended(products, inCart, familiesOf, howMany = 6) {
   const taken = new Set(inCart.map((p) => p.id));
-  const free = products.filter((p) => !taken.has(p.id));
+  const free = products.filter((p) => !taken.has(p.id) && p.inStock !== false);
   const families = new Set(inCart.flatMap(familiesOf));
   const cats = new Set(inCart.map((p) => p.category).filter(Boolean));
   const pools = [
@@ -41,13 +44,13 @@ function pickRecommended(products, inCart, familiesOf, howMany = 6) {
   return out;
 }
 
-export function createCart({ products, productById, fmt, esc, visualFor, brandName, isSet, waLink, miniMax, protectionHTML, reduceMotion, minPrice, sizesOf, familiesOf }) {
+export function createCart({ products, productById, fmt, esc, visualFor, brandName, isSet, waLink, miniMax, protectionHTML, reduceMotion, minPrice, sizesOf, familiesOf, fly }) {
   // Se leen solo los productos y tamaños que siguen existiendo (los precios siempre se toman del catálogo actual).
   const read = () => {
     try {
       const raw = JSON.parse(localStorage.getItem(KEY)) || [];
       return raw
-        .filter((x) => productById[x.id]?.prices?.[x.ml] != null)
+        .filter((x) => productById[x.id]?.prices?.[x.ml] != null && productById[x.id].inStock !== false)
         .map((x) => ({ id: x.id, ml: Number(x.ml), qty: Math.max(1, Math.min(MAX_QTY, Number(x.qty) || 1)) }));
     } catch {
       return [];
@@ -61,6 +64,55 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
       /* sin almacenamiento: el carrito dura mientras la página esté abierta */
     }
   };
+  /* ---------- Datos de entrega ---------- */
+  let ship = {};
+  try {
+    ship = JSON.parse(localStorage.getItem(SHIP_KEY)) || {};
+  } catch {
+    ship = {};
+  }
+  const saveShip = () => {
+    try {
+      localStorage.setItem(SHIP_KEY, JSON.stringify(ship));
+    } catch {
+      /* sin almacenamiento */
+    }
+  };
+  const opt = (v, sel, label = v) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(label)}</option>`;
+  const municipios = () => DESTINOS[ship.departamento] || [];
+  const zonasDe = () => ZONAS[`${ship.departamento}|${ship.municipio}`];
+  function zonaField() {
+    const z = zonasDe();
+    return z
+      ? `<span>Zona</span><select name="zona">${opt('', ship.zona, 'Elige la zona')}${z.map((n) => opt(`Zona ${n}`, ship.zona)).join('')}</select>`
+      : `<span>Zona, colonia o aldea</span><input name="zona" value="${esc(ship.zona || '')}" maxlength="60" placeholder="Por ejemplo: Zona 2 o Colonia El Carmen">`;
+  }
+  function formHTML() {
+    return `
+    <form class="cart-form" id="cartForm" novalidate>
+      <h3>Datos de entrega</h3>
+      <p class="cf-sub">Enviamos con Cargo Expreso a todo Guatemala. Los campos con * son obligatorios.</p>
+      <label class="cf cf-full"><span>Nombre completo *</span><input name="nombre" value="${esc(ship.nombre || '')}" autocomplete="name" maxlength="80" required></label>
+      <label class="cf"><span>Departamento *</span><select name="departamento" required>${opt('', ship.departamento, 'Elige el departamento')}${Object.keys(DESTINOS).map((d) => opt(d, ship.departamento)).join('')}</select></label>
+      <label class="cf"><span>Municipio / ciudad *</span><select name="municipio" required ${ship.departamento ? '' : 'disabled'}>${opt('', ship.municipio, ship.departamento ? 'Elige el municipio' : 'Primero el departamento')}${municipios().map((m) => opt(m, ship.municipio)).join('')}</select></label>
+      <label class="cf cf-full" id="cfZona">${zonaField()}</label>
+      <label class="cf cf-full"><span>Dirección y datos extras *</span><textarea name="direccion" rows="2" maxlength="300" required placeholder="Calle o avenida, número de casa o apartamento y alguna referencia (por ejemplo: portón negro, frente al parque)">${esc(ship.direccion || '')}</textarea></label>
+      <label class="cf cf-full"><span>Notas</span><textarea name="notas" rows="2" maxlength="300" placeholder="Horario para recibir, quién recibe, si es regalo…">${esc(ship.notas || '')}</textarea></label>
+      <p class="cf-error" id="cfError" role="alert" hidden></p>
+    </form>`;
+  }
+  const REQUIRED = { nombre: 'tu nombre', departamento: 'el departamento', municipio: 'el municipio', direccion: 'la dirección' };
+  function checkForm() {
+    const form = document.getElementById('cartForm');
+    const missing = Object.keys(REQUIRED).filter((k) => !String(ship[k] || '').trim());
+    for (const k of Object.keys(REQUIRED)) form.elements[k]?.closest('.cf')?.classList.toggle('is-invalid', missing.includes(k));
+    const err = document.getElementById('cfError');
+    err.hidden = !missing.length;
+    err.textContent = missing.length ? `Falta ${missing.map((k) => REQUIRED[k]).join(', ')}.` : '';
+    if (missing.length) form.elements[missing[0]]?.focus();
+    return !missing.length;
+  }
+
   const priceOf = (l) => productById[l.id].prices[l.ml];
   const count = () => lines.reduce((s, l) => s + l.qty, 0);
   const total = () => round2(lines.reduce((s, l) => s + priceOf(l) * l.qty, 0));
@@ -137,6 +189,7 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
       })
       .join('')}</ul>`;
     foot.innerHTML = `
+      ${formHTML()}
       ${protectionHTML(false)}
       <div class="cart-total"><span>Total <small>(${count()} ${count() === 1 ? 'producto' : 'productos'})</small></span><strong>${fmt(total())}</strong></div>
       <a class="btn btn-block" id="cartSend" href="${esc(waLink(message()))}" target="_blank" rel="noopener">Enviar pedido por WhatsApp</a>
@@ -182,7 +235,18 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
         .filter(Boolean)
         .join('\n');
     });
-    return `Hola, quiero hacer este pedido:\n\n${rows.join('\n\n')}\n\nTotal: ${fmt(total())}\nIncluye Shipping Protection.\n\nMi nombre: \nMi dirección y ciudad: `;
+    const s = (k) => String(ship[k] || '').trim();
+    const entrega = [
+      `Nombre: ${s('nombre')}`,
+      `Departamento: ${s('departamento')}`,
+      `Municipio: ${s('municipio')}`,
+      s('zona') ? `Zona: ${s('zona')}` : null,
+      `Dirección: ${s('direccion')}`,
+      s('notas') ? `Notas: ${s('notas')}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return `Hola, quiero hacer este pedido:\n\n${rows.join('\n\n')}\n\nTotal: ${fmt(total())}\nIncluye Shipping Protection.\n\nDATOS DE ENTREGA\n${entrega}`;
   }
 
   function open() {
@@ -210,7 +274,7 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
 
   function add(id, ml, qty = 1) {
     const p = productById[id];
-    if (!p || p.prices[ml] == null) return;
+    if (!p || p.prices[ml] == null || p.inStock === false) return;
     const line = lines.find((l) => l.id === id && l.ml === Number(ml));
     if (line) line.qty = Math.min(MAX_QTY, line.qty + qty);
     else lines.push({ id, ml: Number(ml), qty });
@@ -220,11 +284,46 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
       render();
       renderRecs();
     }
-    toast(`${p.name} agregado al carrito`);
+    toast(qty > 1 ? `${qty} × ${p.name} agregados al carrito` : `${p.name} agregado al carrito`);
     btn.classList.remove('is-bump');
     void btn.offsetWidth;
     btn.classList.add('is-bump');
   }
+
+  // Formulario: se guarda mientras se escribe; el municipio depende del departamento y la zona del municipio.
+  dialog.addEventListener('input', (e) => {
+    const el = e.target.closest('#cartForm [name]');
+    if (!el) return;
+    ship[el.name] = el.value;
+    if (el.name === 'departamento') {
+      ship.municipio = '';
+      ship.zona = '';
+      const m = dialog.querySelector('[name=municipio]');
+      m.disabled = !ship.departamento;
+      m.innerHTML = opt('', '', ship.departamento ? 'Elige el municipio' : 'Primero el departamento') + municipios().map((x) => opt(x, '')).join('');
+      dialog.querySelector('#cfZona').innerHTML = zonaField();
+    }
+    if (el.name === 'municipio') {
+      ship.zona = '';
+      dialog.querySelector('#cfZona').innerHTML = zonaField();
+    }
+    el.closest('.cf')?.classList.remove('is-invalid');
+    saveShip();
+  });
+  dialog.addEventListener('change', (e) => {
+    if (e.target.matches('#cartForm select')) e.target.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  dialog.addEventListener('submit', (e) => e.preventDefault());
+  // Enviar: primero revisa los datos; el mensaje se arma en ese momento con todo lo escrito.
+  dialog.addEventListener('click', (e) => {
+    const send = e.target.closest('#cartSend');
+    if (!send) return;
+    if (!checkForm()) {
+      e.preventDefault();
+      return;
+    }
+    send.href = waLink(message());
+  });
 
   btn.addEventListener('click', open);
   document.getElementById('cartClose').addEventListener('click', close);
@@ -237,6 +336,7 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
     const recAdd = e.target.closest('[data-rec-add]');
     if (recAdd) {
       const p = productById[recAdd.dataset.recAdd];
+      fly?.(recAdd.closest('.rec')?.querySelector('.rec-stage'));
       return add(p.id, defaultMl(p));
     }
     const q = e.target.closest('[data-qty]');

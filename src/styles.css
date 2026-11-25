@@ -1,5 +1,5 @@
 /* =========================================================
-   Ánima · catálogo
+   Olorosos · catálogo
    Crema y negro, mucho aire, pocas cosas a la vez.
    ========================================================= */
 @property --hero-liq {
@@ -2644,5 +2644,364 @@ button {
   .cart-thumb {
     width: 76px;
     height: 96px;
+  }
+}
+/* ---------- Existencias ---------- */
+.stock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 14px;
+}
+.stock i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #3f9a5c;
+  box-shadow: 0 0 0 4px rgba(63, 154, 92, 0.16);
+}
+.stock.is-in {
+  color: #2f6b44;
+}
+.stock.is-out {
+  color: var(--muted);
+}
+.stock.is-out i {
+  background: #b8b2aa;
+  box-shadow: 0 0 0 4px rgba(184, 178, 170, 0.2);
+}
+.card-stock {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+#modalAdd:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Etiquetas de colores (categoría, familias y notas) ---------- */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.notes .pills {
+  margin: 0;
+}
+.pill {
+  padding: 5px 12px;
+  border: 1px solid var(--pill-line, var(--line));
+  border-radius: 99px;
+  background: var(--pill-bg, var(--cream-2));
+  color: var(--pill-ink, var(--ink));
+  font-size: 13px;
+  line-height: 1.3;
+}
+.notes div {
+  align-items: center;
+}
+
+/* ---------- Cantidad en el detalle ---------- */
+.qty-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.qty-pick .cart-qty {
+  margin: 0;
+}
+
+/* ---------- Carrito: todo se desplaza junto (lista, datos de entrega y total) ---------- */
+.cart-main {
+  overflow: auto;
+}
+.cart-body {
+  flex: none;
+  overflow: visible;
+}
+.cart-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.cart-form h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+}
+.cf-sub {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cf {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.cf-full {
+  grid-column: 1 / -1;
+}
+.cf input,
+.cf select,
+.cf textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+.cf textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+.cf select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23141414' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+.cf select:disabled {
+  opacity: 0.55;
+}
+.cf input:focus,
+.cf select:focus,
+.cf textarea:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+.cf.is-invalid input,
+.cf.is-invalid select,
+.cf.is-invalid textarea {
+  border-color: #b3473d;
+}
+.cf.is-invalid span {
+  color: #b3473d;
+}
+.cf-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fbeceb;
+  color: #8e322a;
+  font-size: 14px;
+}
+@media (max-width: 520px) {
+  .cart-form {
+    grid-template-columns: 1fr;
+  }
+}
+/* Etiquetas que llevan a la Tienda filtrada */
+a.pill {
+  display: inline-block;
+  text-decoration: none;
+  transition: transform 160ms var(--ease), box-shadow 160ms ease;
+}
+@media (hover: hover) {
+  a.pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  }
+}
+.nota-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  padding: 5px 8px 5px 12px;
+  border-radius: 99px;
+  background: var(--cream-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.nota-chip i {
+  font-style: normal;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+}
+@media (max-width: 860px) {
+  .recs-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+/* =========================================================
+   3D mejorado (solo si la persona no pidió reducir movimiento)
+   ========================================================= */
+.fly-ghost {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cream-2);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.18);
+}
+.fly-ghost > * {
+  max-width: 100%;
+  max-height: 100%;
+}
+.fly-ghost .product-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.fly-ghost .set-visual {
+  width: 100%;
+  height: 100%;
+  padding: 10%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* Tarjetas: inclinación más profunda, el frasco se mueve en sentido contrario (profundidad) y un brillo sigue al mouse */
+  .card-stage,
+  .rec-stage {
+    --tx: 0;
+    --ty: 0;
+    transform: perspective(900px) rotateY(calc(var(--tx) * 16deg)) rotateX(calc(var(--ty) * -14deg));
+    transition: transform 500ms var(--ease), box-shadow 500ms ease;
+  }
+  .card-stage > :is(.bottle, .product-photo, .set-visual),
+  .rec-stage > :is(.bottle, .product-photo, .set-visual) {
+    transform: translate(calc(var(--tx) * -14px), calc(var(--ty) * -12px)) scale(1);
+    transition: transform 600ms var(--ease);
+  }
+  .card-stage::after,
+  .rec-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at calc(50% + var(--tx) * 100%) calc(50% + var(--ty) * 100%), rgb(255 255 255 / 0.45), transparent 55%);
+    opacity: 0;
+    transition: opacity 400ms ease;
+    mix-blend-mode: soft-light;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-stage:hover,
+    .rec-stage:hover {
+      transform: perspective(900px) rotateY(calc(var(--tx) * 16deg)) rotateX(calc(var(--ty) * -14deg)) translateY(-6px);
+      box-shadow: 0 24px 40px -18px rgb(0 0 0 / 0.28);
+      transition: transform 120ms linear, box-shadow 500ms ease;
+    }
+    .card-stage:hover > :is(.bottle, .product-photo, .set-visual),
+    .rec-stage:hover > :is(.bottle, .product-photo, .set-visual) {
+      transform: translate(calc(var(--tx) * -14px), calc(var(--ty) * -12px)) scale(1.06);
+      transition: transform 160ms linear;
+    }
+    .card-stage:hover::after,
+    .rec-stage:hover::after {
+      opacity: 1;
+    }
+    /* Sets: los frascos se abren en abanico */
+    :is(.card-stage, .rec-stage, .modal-visual):hover .set-item {
+      transform: translateX(calc(var(--o, 0) * 10%)) rotate(calc(var(--o, 0) * 5deg)) translateY(-4%);
+    }
+  }
+  .set-item {
+    transition: transform 600ms var(--ease);
+    transform-origin: 50% 100%;
+  }
+
+  /* Detalle: entra girando desde abajo y el frasco gira con el mouse y flota */
+  .modal {
+    transform: perspective(1400px) rotateX(10deg) translateY(28px) scale(0.96);
+    transform-origin: 50% 100%;
+    transition: opacity 260ms ease, transform 520ms var(--ease);
+  }
+  .modal.is-open {
+    transform: perspective(1400px) rotateX(0) translateY(0) scale(1);
+  }
+  .modal-visual {
+    --tx: 0;
+    --ty: 0;
+    perspective: 900px;
+  }
+  .modal-visual > :is(.bottle, .set-visual) {
+    transform: rotateY(calc(var(--tx) * 26deg)) rotateX(calc(var(--ty) * -16deg));
+    transition: transform 500ms var(--ease);
+    animation: float-y 5s ease-in-out infinite;
+  }
+  .modal-visual > .product-photo {
+    transform: scale(1.04) translate(calc(var(--tx) * -12px), calc(var(--ty) * -12px));
+    transition: transform 500ms var(--ease);
+  }
+  @keyframes float-y {
+    50% {
+      translate: 0 -8px;
+    }
+  }
+
+  /* Carrito: entra de lado como una puerta que se abre */
+  .cart {
+    transform: perspective(1600px) rotateY(-8deg) translateX(40px);
+    transform-origin: 100% 50%;
+    transition: opacity 260ms ease, transform 560ms var(--ease);
+  }
+  .cart.is-open {
+    transform: perspective(1600px) rotateY(0) translateX(0);
+  }
+  .cart-line {
+    animation: line-in 500ms var(--ease) both;
+  }
+  .cart-thumb {
+    --tx: 0;
+    --ty: 0;
+    transform: perspective(600px) rotateY(calc(var(--tx) * 18deg)) rotateX(calc(var(--ty) * -14deg));
+    transition: transform 400ms var(--ease);
+  }
+  @keyframes line-in {
+    from {
+      opacity: 0;
+      transform: perspective(800px) rotateX(-14deg) translateY(10px);
+    }
+  }
+  .rec {
+    animation: rec-in 600ms var(--ease) both;
+  }
+  .rec:nth-child(2) { animation-delay: 60ms; }
+  .rec:nth-child(3) { animation-delay: 120ms; }
+  .rec:nth-child(4) { animation-delay: 180ms; }
+  .rec:nth-child(5) { animation-delay: 240ms; }
+  .rec:nth-child(6) { animation-delay: 300ms; }
+  @keyframes rec-in {
+    from {
+      opacity: 0;
+      transform: perspective(900px) rotateY(-24deg) translateX(24px);
+    }
+  }
+  /* Etiquetas: se levantan un poco en 3D al pasar el mouse */
+  a.pill {
+    transition: transform 200ms var(--ease), box-shadow 200ms ease;
+  }
+  @media (hover: hover) {
+    a.pill:hover {
+      transform: perspective(300px) rotateX(12deg) translateY(-2px);
+    }
   }
 }

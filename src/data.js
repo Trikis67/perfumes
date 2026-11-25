@@ -1,7 +1,7 @@
 // Catálogo de ejemplo. Reemplazar con los productos reales del cliente.
 // Número de WhatsApp en formato internacional, sin "+" ni espacios (ej. 50230152263).
 export const WHATSAPP_NUMBER = '50230152263';
-export const STORE_NAME = 'Ánima';
+export const STORE_NAME = 'Olorosos';
 
 export const families = [
   {
