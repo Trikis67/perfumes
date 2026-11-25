@@ -207,7 +207,7 @@ function bindNotify(d) {
 const lineupOf = (x) =>
   x.photoSource === 'category'
     ? products
-        .filter((p) => p.photo && p.inStock !== false && inCategory(p, categories.find((c) => c.id === x.photoCategory)))
+        .filter((p) => p.photo && inCategory(p, categories.find((c) => c.id === x.photoCategory)))
         .slice(0, MAX_LINEUP)
         .map((p) => p.photo)
     : null;

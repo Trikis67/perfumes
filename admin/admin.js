@@ -1500,7 +1500,7 @@ async function renderShowcase(view) {
   const inCat = categoryMatcher(allProducts.filter((p) => p.visible !== false));
   const lineup = (x) =>
     x.photoSource === 'category'
-      ? allProducts.filter((p) => p.visible !== false && p.photo && p.inStock !== false && inCat(p, categories.find((c) => c.id === x.photoCategory))).slice(0, MAX_LINEUP).map((p) => p.photo)
+      ? allProducts.filter((p) => p.visible !== false && p.photo && inCat(p, categories.find((c) => c.id === x.photoCategory))).slice(0, MAX_LINEUP).map((p) => p.photo)
       : null;
   const hasImage = (x) => (x.photoSource === 'category' ? lineup(x).length > 0 : !!x.photo);
   view.innerHTML = `
@@ -1572,7 +1572,7 @@ async function openSlideEditor(slide, onChange) {
   loadFonts(Object.keys(SHOWCASE_FONTS)); // para que cada opción se vea con su letra
   // Fotos de los perfumes de una categoría (para la opción "Perfumes de una categoría").
   const inCat = categoryMatcher(allProducts.filter((p) => p.visible !== false));
-  const catPhotos = (c) => (c ? allProducts.filter((p) => p.visible !== false && p.photo && p.inStock !== false && inCat(p, c)).map((p) => p.photo) : []);
+  const catPhotos = (c) => (c ? allProducts.filter((p) => p.visible !== false && p.photo && inCat(p, c)).map((p) => p.photo) : []);
   const linkValue = ['brand', 'product', 'category'].includes(x.linkType) ? `${x.linkType}:${x.linkId}` : x.linkType || 'none';
   const opt = (v, label) => `<option value="${esc(v)}" ${v === linkValue ? 'selected' : ''}>${esc(label)}</option>`;
 
