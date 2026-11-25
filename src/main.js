@@ -213,7 +213,9 @@ else {
         ? shopUrl({ tipo: 'completo' })
         : x.linkType === 'brand' && x.linkId
           ? shopUrl({ marca: x.linkId })
-          : null;
+          : x.linkType === 'category' && x.linkId
+            ? shopUrl({ categoria: x.linkId })
+            : null;
   track.innerHTML = slides
     .map((x) => {
       const inner = slideHTML(x);

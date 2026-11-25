@@ -3,6 +3,7 @@ import { NOTIFY_ENABLED } from '../src/config.js';
 import { slideHTML } from '../src/showcase.js';
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 import { setVisualHTML, isSet } from '../src/setvisual.js';
+import { RULES, ruleText } from '../src/categories.js';
 import { bottleSVG } from '../src/bottle.js';
 
 // Familias olfativas: vienen del servidor. Se crean en la pestaña Catálogo o al momento, desde cada perfume.
@@ -351,59 +352,75 @@ document.addEventListener('keydown', (e) => {
   createFromBox(box, $('[data-create]', box));
 });
 
-/* ---------- Varias familias por perfume ---------- */
-// Casillas con todas las familias guardadas + "Nueva familia" para crear una al momento (queda guardada).
-const familyChip = (f, on) =>
-  `<label class="fpick" style="--c:${esc(f.color || '#B58A4C')}"><input type="checkbox" name="families" value="${esc(f.id)}" ${on ? 'checked' : ''}><span><i aria-hidden="true"></i>${esc(f.name)}</span></label>`;
-function familyPicker(selected = []) {
-  // Las marcadas van primero, en su orden, para que la principal se vea al inicio.
-  const order = [...selected.map((id) => families.find((f) => f.id === id)).filter(Boolean), ...families.filter((f) => !selected.includes(f.id))];
+/* ---------- Varias familias y varias categorías por perfume (casillas) ---------- */
+// Casillas con todo lo guardado + "Nueva…" para crear una al momento (queda guardada para los demás perfumes).
+const PICKERS = {
+  family: { field: 'families', list: () => families, max: 5, nuevo: '+ Nueva familia', what: 'familia', placeholder: 'Por ejemplo Gourmand', label: 'famLabel' },
+  category: { field: 'categories', list: () => categories, max: 6, nuevo: '+ Nueva categoría', what: 'categoría', placeholder: 'Por ejemplo Árabes', label: 'catLabel' },
+};
+function pickChip(kind, x, on) {
+  const auto = kind === 'category' && x.rule?.type ? '<small>auto</small>' : '';
+  const color = kind === 'family' ? x.color || '#B58A4C' : '#B58A4C';
+  return `<label class="fpick${kind === 'category' ? ' is-cat' : ''}" style="--c:${esc(color)}" ${auto ? `title="${esc(ruleText(x.rule, fmt))}. Además puedes marcarla a mano."` : ''}><input type="checkbox" name="${PICKERS[kind].field}" value="${esc(x.id)}" ${on ? 'checked' : ''}><span>${kind === 'family' ? '<i aria-hidden="true"></i>' : ''}${esc(x.name)}${auto}</span></label>`;
+}
+const pickChips = (kind, keep) =>
+  PICKERS[kind].list().map((x) => pickChip(kind, x, keep.includes(x.id))).join('') + `<button type="button" class="fpick-new" data-pick-new>${PICKERS[kind].nuevo}</button>`;
+function picker(kind, selected = []) {
+  const k = PICKERS[kind];
+  // Las marcadas van primero, en su orden.
+  const all = k.list();
+  const order = [...selected.map((id) => all.find((x) => x.id === id)).filter(Boolean), ...all.filter((x) => !selected.includes(x.id))];
   return `
-  <div class="family-picks" role="group" aria-labelledby="famLabel">
-    <div class="fpicks">${order.map((f) => familyChip(f, selected.includes(f.id))).join('')}<button type="button" class="fpick-new" data-family-new>+ Nueva familia</button></div>
+  <div class="family-picks" data-kind="${kind}" role="group" aria-labelledby="${k.label}">
+    <div class="fpicks">${order.map((x) => pickChip(kind, x, selected.includes(x.id))).join('')}<button type="button" class="fpick-new" data-pick-new>${k.nuevo}</button></div>
     <div class="creatable-new" hidden>
-      <input maxlength="40" placeholder="Por ejemplo Gourmand" aria-label="Nombre de la nueva familia" autocomplete="off">
-      <button type="button" class="btn btn-primary btn-sm" data-family-create>Crear</button>
-      <button type="button" class="btn btn-ghost btn-sm" data-family-cancel>Cancelar</button>
+      <input maxlength="40" placeholder="${esc(k.placeholder)}" aria-label="Nombre de la nueva ${k.what}" autocomplete="off">
+      <button type="button" class="btn btn-primary btn-sm" data-pick-create>Crear</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-pick-cancel>Cancelar</button>
     </div>
   </div>`;
 }
+const familyPicker = (selected) => picker('family', selected);
+const categoryPicker = (selected) => picker('category', selected);
 const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
+const categoriesOf = (p) => (Array.isArray(p?.categories) && p.categories.length ? p.categories : p?.category ? [p.category] : []);
 const familyNames = (p) => familiesOf(p).map(familyName).filter(Boolean).join(', ');
+const categoryNames = (p) => categoriesOf(p).map(categoryName).filter(Boolean).join(', ');
 document.addEventListener('change', (e) => {
   const c = e.target.closest('.fpick input');
   if (!c) return;
   const box = c.closest('.family-picks');
-  const on = $$('.fpick input:checked', box);
-  if (on.length > 5) {
+  const k = PICKERS[box.dataset.kind];
+  if ($$('.fpick input:checked', box).length > k.max) {
     c.checked = false;
-    toast('Máximo 5 familias por perfume.', true);
+    toast(`Máximo ${k.max} por perfume.`, true);
   }
 });
-async function createFamilyFromPicker(box, btn) {
+async function createFromPicker(box, btn) {
+  const kind = box.dataset.kind;
   const input = $('.creatable-new input', box);
   const name = input.value.trim();
   if (!name) return input.focus();
   const finish = (id) => {
     const keep = $$('.fpick input:checked', box).map((i) => i.value);
     if (!keep.includes(id)) keep.push(id);
-    $('.fpicks', box).innerHTML =
-      families.map((f) => familyChip(f, keep.includes(f.id))).join('') + '<button type="button" class="fpick-new" data-family-new>+ Nueva familia</button>';
+    $('.fpicks', box).innerHTML = pickChips(kind, keep);
     $('.creatable-new', box).hidden = true;
     input.value = '';
     box.dispatchEvent(new Event('input', { bubbles: true }));
   };
-  const same = families.find((f) => f.name.toLowerCase() === name.toLowerCase());
+  const same = PICKERS[kind].list().find((x) => x.name.toLowerCase() === name.toLowerCase());
   if (same) {
     finish(same.id);
     return toast(`"${same.name}" ya existía: quedó marcada.`);
   }
   await withLoading(btn, async () => {
     try {
-      const created = await api('/api/admin/families', { method: 'POST', body: CREATABLE.family.body(name) });
-      await loadFamilies();
+      const c = CREATABLE[kind];
+      const created = await api(c.endpoint, { method: 'POST', body: c.body ? c.body(name) : { name } });
+      await c.reload();
       finish(created.id);
-      toast('Familia creada y guardada');
+      toast(c.done);
     } catch (err) {
       toast(err.message, true);
     }
@@ -412,21 +429,20 @@ async function createFamilyFromPicker(box, btn) {
 document.addEventListener('click', (e) => {
   const box = e.target.closest('.family-picks');
   if (!box) return;
-  if (e.target.closest('[data-family-new]')) {
+  if (e.target.closest('[data-pick-new]')) {
     $('.creatable-new', box).hidden = false;
     $('.creatable-new input', box).focus();
   }
-  if (e.target.closest('[data-family-cancel]')) $('.creatable-new', box).hidden = true;
-  const b = e.target.closest('[data-family-create]');
-  if (b) createFamilyFromPicker(box, b);
+  if (e.target.closest('[data-pick-cancel]')) $('.creatable-new', box).hidden = true;
+  const b = e.target.closest('[data-pick-create]');
+  if (b) createFromPicker(box, b);
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || !e.target.closest('.family-picks .creatable-new input')) return;
   e.preventDefault();
   const box = e.target.closest('.family-picks');
-  createFamilyFromPicker(box, $('[data-family-create]', box));
+  createFromPicker(box, $('[data-pick-create]', box));
 });
-
 const genderOptions = (sel) => ['Unisex', 'Femenino', 'Masculino'].map((g) => `<option ${g === sel ? 'selected' : ''}>${g}</option>`).join('');
 /* ---------- Selector de color junto a la foto ---------- */
 // Fondos oscuros para la portada (el texto es claro) y tonos para el aura y las tarjetas.
@@ -551,10 +567,10 @@ function readForm(form) {
   for (const el of form.elements) {
     if (!el.name) continue;
     if (el.type === 'radio' && !el.checked) continue; // en un grupo de opciones solo vale la marcada
-    if (el.name === 'families') {
-      // Varias familias: lista con las marcadas; la primera que se marcó queda como principal.
-      out.families ||= [];
-      if (el.checked) out.families.push(el.value);
+    if (el.name === 'families' || el.name === 'categories') {
+      // Varias familias o categorías: lista con las marcadas.
+      out[el.name] ||= [];
+      if (el.checked) out[el.name].push(el.value);
       continue;
     }
     // Mientras se escribe una marca/familia nueva, cuenta la que estaba elegida antes.
@@ -839,7 +855,7 @@ async function renderProducts(view) {
 
   function draw() {
     const q = $('#pSearch').value.trim().toLowerCase();
-    const items = list.filter((p) => !q || [p.name, familyNames(p), brandName(p.brand), categoryName(p.category)].some((t) => t.toLowerCase().includes(q)));
+    const items = list.filter((p) => !q || [p.name, familyNames(p), brandName(p.brand), categoryNames(p)].some((t) => t.toLowerCase().includes(q)));
     const hidden = list.filter((p) => !p.visible).length;
     $('#pCount').textContent = `${list.length} perfumes${hidden ? `, ${hidden} ocultos` : ''}`;
     $('#plist').innerHTML = items.length
@@ -849,7 +865,7 @@ async function renderProducts(view) {
             return `
         <button class="prow${p.visible ? '' : ' is-hidden'}" data-id="${esc(p.id)}" style="--liq:${esc(p.liquid)}">
           <span class="thumb${p.photo || isSet(p) ? ' has-photo' : ''}${isSet(p) ? ' is-set' : ''}">${visualFor(p)}</span>
-          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryName(p.category), familyNames(p)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
+          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryNames(p), familyNames(p)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
           <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : p.inStock === false ? '<span class="chip chip-muted">Agotado</span>' : !p.photo && !isSet(p) ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
         </button>`;
           })
@@ -946,7 +962,6 @@ function openProductEditor(product, onChange, allProducts = []) {
       <div class="fields">
         <div class="field full"><label for="pName">Nombre</label><input id="pName" name="name" value="${esc(p.name)}" maxlength="60" required></div>
         <div class="field full"><label for="pBrand">Marca</label>${creatableSelect('brand', { id: 'pBrand', name: 'brand', value: p.brand })}<span class="hint">Elige una que ya usaste o crea una nueva: queda guardada para los siguientes perfumes.</span></div>
-        <div class="field"><label for="pCategory">Categoría</label>${creatableSelect('category', { id: 'pCategory', name: 'category', value: p.category })}</div>
         <div class="field"><label for="pGender">Para</label><select id="pGender" name="gender">${genderOptions(p.gender)}</select></div>
         <div class="field full">
           <span class="label" id="famLabel">Familias</span>
@@ -973,6 +988,11 @@ function openProductEditor(product, onChange, allProducts = []) {
           </div>
         </div>
         <div class="field full"><label for="pDesc">Descripción</label><textarea id="pDesc" name="description" maxlength="400">${esc(p.description)}</textarea><span class="counter"></span></div>
+        <div class="field full">
+          <span class="label" id="catLabel">Categorías</span>
+          <span class="hint">Marca en qué categorías va este perfume (por ejemplo Más vendidos, Árabes, En oferta). Las que dicen <strong>auto</strong> se llenan solas, pero también puedes marcarlas a mano.</span>
+          ${categoryPicker(categoriesOf(p))}
+        </div>
         <div class="field full">
           <label for="pReview">Link de review (opcional)</label>
           <input id="pReview" name="review" type="url" inputmode="url" value="${esc(p.review || '')}" placeholder="https://www.tiktok.com/… o https://youtu.be/…" autocomplete="off">
@@ -1436,12 +1456,12 @@ async function renderShowcase(view) {
 
 async function openSlideEditor(slide, onChange) {
   const isNew = !slide;
-  const [allProducts] = await Promise.all([api('/api/admin/products'), loadBrands()]);
+  const [allProducts] = await Promise.all([api('/api/admin/products'), loadBrands(), loadCategories().catch(() => (categories = []))]);
   const x = slide || { word: 'Nuevos', font: DEFAULT_FONT, textColor: '#1D1B19', background: '#D9D5CF', linkType: 'none', linkId: null, visible: true, photo: null };
   let pendingFile = null;
   let photo = x.photo;
   loadFonts(Object.keys(SHOWCASE_FONTS)); // para que cada opción se vea con su letra
-  const linkValue = x.linkType === 'brand' || x.linkType === 'product' ? `${x.linkType}:${x.linkId}` : x.linkType || 'none';
+  const linkValue = ['brand', 'product', 'category'].includes(x.linkType) ? `${x.linkType}:${x.linkId}` : x.linkType || 'none';
   const opt = (v, label) => `<option value="${esc(v)}" ${v === linkValue ? 'selected' : ''}>${esc(label)}</option>`;
 
   const sheet = document.createElement('dialog');
@@ -1504,6 +1524,7 @@ async function openSlideEditor(slide, onChange) {
             ${opt('none', 'Nada (solo decorativa)')}
             ${opt('minis', 'Los decants')}
             ${opt('full', 'Los frascos completos')}
+            ${categories.length ? `<optgroup label="Una categoría">${categories.map((c) => opt(`category:${c.id}`, c.name)).join('')}</optgroup>` : ''}
             <optgroup label="Una marca">${[...brands].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((b) => opt(`brand:${b.id}`, b.name)).join('')}</optgroup>
             <optgroup label="Un perfume">${allProducts.map((p) => opt(`product:${p.id}`, p.name)).join('')}</optgroup>
           </select>
@@ -1718,8 +1739,9 @@ async function renderFamilies(view) {
     <div class="view-head" style="margin-top:36px">
       <div><h1>Categorías</h1><p>Agrupa tus perfumes como quieras: Árabes, Nicho, Diseñador, Para regalar… En la tienda aparecen como filtro.</p></div>
     </div>
-    <form class="brand-add" id="catAdd">
-      <input name="name" maxlength="40" placeholder="Nueva categoría, por ejemplo Árabes" aria-label="Nombre de la nueva categoría" autocomplete="off">
+    <form class="cat-add" id="catAdd">
+      <input name="name" maxlength="40" placeholder="Nueva categoría, por ejemplo Más baratos" aria-label="Nombre de la nueva categoría" autocomplete="off">
+      ${ruleFields(null)}
       <button class="btn btn-primary" type="submit">${ICON.plus}Agregar</button>
     </form>
     <div class="plist" id="clist"></div>
@@ -1783,7 +1805,7 @@ async function renderFamilies(view) {
       <div class="frow brow">
         <button class="frow-main" data-category="${esc(c.id)}">
           <span class="bmark" aria-hidden="true">${esc(c.name.slice(0, 1).toUpperCase())}</span>
-          <span class="prow-text"><span class="prow-name">${esc(c.name)}</span></span>
+          <span class="prow-text"><span class="prow-name">${esc(c.name)}</span><span class="prow-meta">${esc(ruleText(c.rule, fmt))}</span></span>
           <span class="chip ${c.products ? '' : 'chip-muted'}">${perfumes(c.products)}</span>
         </button>
       </div>`,
@@ -1792,14 +1814,17 @@ async function renderFamilies(view) {
       : '<div class="empty"><strong>Aún no hay categorías</strong>Escribe la primera arriba, o créala desde un perfume.</div>';
   }
   drawCategories();
+  syncRule($('#catAdd'));
   $('#catAdd').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
     const input = form.elements.name;
     await withLoading(form.querySelector('button'), async () => {
       try {
-        await api('/api/admin/categories', { method: 'POST', body: { name: input.value } });
+        await api('/api/admin/categories', { method: 'POST', body: { name: input.value, rule: readRule(form) } });
         input.value = '';
+        form.elements.ruleType.value = 'manual';
+        syncRule(form);
         await loadCategories();
         drawCategories();
         toast('Categoría agregada');
@@ -1869,7 +1894,41 @@ async function renderFamilies(view) {
   }
 }
 
-// Sirve para marcas y para categorías (solo tienen nombre).
+/* ---------- Tipo de categoría: manual o automática (con su regla) ---------- */
+function ruleFields(rule) {
+  const type = rule?.type || 'manual';
+  return `
+  <div class="rule-fields">
+    <label class="rule-type"><span>Tipo</span><select name="ruleType">
+      <option value="manual" ${type === 'manual' ? 'selected' : ''}>Manual: yo elijo los perfumes</option>
+      <optgroup label="Automática (se llena sola)">${Object.entries(RULES)
+        .map(([id, r]) => `<option value="${id}" ${type === id ? 'selected' : ''}>${esc(r.label)}</option>`)
+        .join('')}</optgroup>
+    </select></label>
+    <label class="rule-value"><span></span><input name="ruleValue" value="${esc(rule?.value ?? '')}" autocomplete="off"></label>
+  </div>`;
+}
+// Muestra el campo del valor solo si la regla lo necesita (cuántos, precio o etiqueta).
+function syncRule(root, keepValue = false) {
+  const type = root.querySelector('[name=ruleType]').value;
+  const r = RULES[type];
+  const box = root.querySelector('.rule-value');
+  const input = box.querySelector('input');
+  box.hidden = !r?.value;
+  if (!r?.value) return;
+  box.querySelector('span').textContent = r.hint;
+  input.inputMode = r.value === 'text' ? 'text' : r.value === 'money' ? 'decimal' : 'numeric';
+  if (!keepValue || !input.value) input.value = r.def;
+}
+const readRule = (root) => {
+  const type = root.querySelector('[name=ruleType]').value;
+  return type === 'manual' ? { type: 'manual' } : { type, value: root.querySelector('[name=ruleValue]').value };
+};
+document.addEventListener('change', (e) => {
+  if (e.target.matches('[name=ruleType]')) syncRule(e.target.closest('.rule-fields').parentElement);
+});
+
+// Sirve para marcas y para categorías (las categorías además tienen su tipo: manual o automática).
 const NAME_KINDS = {
   brand: { endpoint: '/api/admin/brands', label: 'Nombre de la marca', del: 'Borrar marca', none: 'Ningún perfume usa esta marca.', keep: 'quedan "sin marca"', confirm: 'Los perfumes de esta marca se quedan en la tienda, sin marca.', saved: 'Marca guardada', gone: 'Marca borrada' },
   category: { endpoint: '/api/admin/categories', label: 'Nombre de la categoría', del: 'Borrar categoría', none: 'Ningún perfume usa esta categoría.', keep: 'quedan "sin categoría"', confirm: 'Los perfumes de esta categoría se quedan en la tienda, sin categoría.', saved: 'Categoría guardada', gone: 'Categoría borrada' },
@@ -1888,6 +1947,7 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
       <div class="fields">
         <div class="field full"><label for="bName">${K.label}</label><input id="bName" name="name" value="${esc(brand.name)}" maxlength="40" required></div>
       </div>
+      ${kind === 'category' ? `<div class="cat-rule">${ruleFields(brand.rule)}<p class="hint">Automática: los perfumes entran solos según la regla. En los dos casos puedes marcarla a mano en cada perfume.</p></div>` : ''}
       <section class="card" style="margin-top:20px">
         <h2>${K.del}</h2>
         <p class="help">${brand.products ? `Sus ${perfumes(brand.products)} no se borran: ${K.keep}.` : K.none}</p>
@@ -1896,6 +1956,7 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
     </form>
     <div class="sheet-foot"><button class="btn btn-primary" id="bSave">Guardar cambios</button></div>`;
   document.body.appendChild(sheet);
+  if (kind === 'category') syncRule($('.cat-rule', sheet), true);
   const close = () => {
     sheet.classList.remove('is-open');
     setTimeout(() => {
@@ -1910,7 +1971,9 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
   $('#bSave', sheet).addEventListener('click', (e) =>
     withLoading(e.currentTarget, async () => {
       try {
-        await api(`${K.endpoint}/${encodeURIComponent(brand.id)}`, { method: 'PUT', body: { name: $('#bName', sheet).value } });
+        const body = { name: $('#bName', sheet).value };
+        if (kind === 'category') body.rule = readRule($('.cat-rule', sheet));
+        await api(`${K.endpoint}/${encodeURIComponent(brand.id)}`, { method: 'PUT', body });
         await onChange();
         toast(K.saved);
         close();

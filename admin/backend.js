@@ -6,6 +6,7 @@ import { supabase, supabaseReady, PHOTO_PREFIX } from '../src/supabase.js';
 import { PANEL_EMAIL_DOMAIN } from '../src/config.js';
 import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE, familiesOf, photoUrl } from '../src/validate.js';
 import { SHOWCASE_FONTS } from '../src/fonts.js';
+import { categoryMatcher } from '../src/categories.js';
 
 export class ApiError extends Error {
   constructor(message, status = 400) {
@@ -141,8 +142,8 @@ async function saveProduct(p) {
   return rowToProduct(row);
 }
 async function slideContext() {
-  const [brands, products] = await Promise.all([getBrands(), listProducts()]);
-  return { fonts: Object.keys(SHOWCASE_FONTS), brands, productIds: new Set(products.map((p) => p.id)) };
+  const [brands, products, categories] = await Promise.all([getBrands(), listProducts(), getCategories()]);
+  return { fonts: Object.keys(SHOWCASE_FONTS), brands, categories, productIds: new Set(products.map((p) => p.id)) };
 }
 const uniqueId = (base, taken) => (taken.has(base) ? `${base}-${crypto.randomUUID().slice(0, 4)}` : base);
 
@@ -357,7 +358,8 @@ const routes = [
     /^\/categories$/,
     async () => {
       const [list, products] = await Promise.all([getCategories(), listProducts()]);
-      return list.map((c) => ({ ...c, products: products.filter((p) => p.category === c.id).length }));
+      const inCat = categoryMatcher(products.filter((p) => p.visible !== false));
+      return list.map((c) => ({ ...c, products: products.filter((p) => inCat(p, c)).length }));
     },
   ],
   [
@@ -379,7 +381,7 @@ const routes = [
       const list = await getCategories();
       const current = list.find((c) => c.id === id);
       if (!current) throw new ApiError('Esa categoría no existe.', 404);
-      const updated = { ...current, ...cleanCategory(body, list.filter((c) => c.id !== id)) };
+      const updated = { ...current, ...cleanCategory(body, list.filter((c) => c.id !== id), current) };
       await setSetting('categories', list.map((c) => (c.id === id ? updated : c)));
       return updated;
     },
@@ -391,7 +393,12 @@ const routes = [
       const [list, products] = await Promise.all([getCategories(), listProducts()]);
       if (!list.some((c) => c.id === id)) throw new ApiError('Esa categoría no existe.', 404);
       // Sus perfumes quedan "sin categoría" (no se borran).
-      for (const p of products.filter((x) => x.category === id)) await saveProduct({ ...p, category: null });
+      for (const p of products) {
+        const cats = Array.isArray(p.categories) ? p.categories : p.category ? [p.category] : [];
+        if (!cats.includes(id)) continue;
+        const next = cats.filter((c) => c !== id);
+        await saveProduct({ ...p, categories: next, category: next[0] || null });
+      }
       await setSetting('categories', list.filter((c) => c.id !== id));
       return { ok: true };
     },

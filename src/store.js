@@ -6,6 +6,7 @@ import { loadCatalog } from './api.js';
 import { isSet, setVisualHTML } from './setvisual.js';
 import { createCart } from './cart.js';
 import { createSearch, mountSearch } from './search.js';
+import { categoryMatcher } from './categories.js';
 export { isSet };
 
 // Catálogo vivo desde el panel; si Supabase no responde, se usa el de respaldo.
@@ -62,13 +63,16 @@ export const familiesOf = (p) => (Array.isArray(p?.families) && p.families.lengt
 export const categoryName = (id) => categories.find((c) => c.id === id)?.name || '';
 export const productById = Object.fromEntries(products.map((p) => [p.id, p]));
 export const usedBrands = brands.filter((b) => products.some((p) => p.brand === b.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
-export const usedCategories = categories.filter((c) => products.some((p) => p.category === c.id));
+// Un perfume está en una categoría si se marcó a mano o si cumple su regla (Más baratos, Más vendidos…).
+export const inCategory = categoryMatcher(products, MINI_MAX_ML);
+export const categoriesFor = (p) => categories.filter((c) => inCategory(p, c));
+export const usedCategories = categories.filter((c) => products.some((p) => inCategory(p, c)));
 // Buscador con tolerancia a errores (se usa en la lupa de la barra y en la página Tienda con ?q=).
 export const searchProducts = createSearch({
   products,
   brandName,
   familyName: (id) => families.find((f) => f.id === id)?.name || '',
-  categoryName,
+  categoryNamesOf: (p) => categoriesFor(p).map((c) => c.name),
   familiesOf: (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []),
 });
 
@@ -230,7 +234,7 @@ export function openModal(id) {
   // Categoría y familias como etiquetas de colores (colores suaves elegidos al azar cada vez).
   // Cada etiqueta lleva a la Tienda con todos los perfumes que la tienen.
   const tags = [
-    ...(categoryName(p.category) ? [['Categoría', categoryName(p.category), shopUrl({ categoria: p.category })]] : []),
+    ...categoriesFor(p).map((c) => ['Categoría', c.name, shopUrl({ categoria: c.id })]),
     ...familiesOf(p)
       .filter((id) => familyName(id))
       .map((id) => ['Familia', familyName(id), shopUrl({ familia: id })]),

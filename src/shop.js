@@ -8,6 +8,8 @@ import {
   isSet,
   familiesOf,
   searchProducts,
+  inCategory,
+  categories,
   families,
   $,
   $$,
@@ -79,7 +81,7 @@ function render() {
   let list = products.filter(
     (p) =>
       (!s.tipo || (s.tipo === 'decants' ? hasMinis(p) : s.tipo === 'sets' ? isSet(p) : hasFull(p))) &&
-      (!s.categoria || p.category === s.categoria) &&
+      (!s.categoria || inCategory(p, categories.find((c) => c.id === s.categoria))) &&
       (!s.marca || p.brand === s.marca) &&
       // Unisex cuenta para ella y para él.
       (!s.para || p.gender === s.para || p.gender === 'Unisex') &&

@@ -36,13 +36,13 @@ function similar(q, w) {
   return 1 - best / Math.max(q.length, Math.min(w.length, q.length + 2));
 }
 
-export function createSearch({ products, brandName, familyName, categoryName, familiesOf }) {
+export function createSearch({ products, brandName, familyName, categoryNamesOf, familiesOf }) {
   // Lo que se puede buscar de cada perfume: nombre y marca pesan más; familias, categoría y notas también cuentan.
   const index = products.map((p) => {
     const strong = norm(`${p.name} ${brandName(p.brand)}`);
     const notes = ['top', 'heart', 'base'].flatMap((k) => p.notes?.[k] || []);
     const set = p.kind === 'set' ? (p.items || []).map((it) => it.name) : [];
-    const weak = norm([categoryName(p.category), ...familiesOf(p).map(familyName), ...notes, ...set, p.gender].join(' '));
+    const weak = norm([...categoryNamesOf(p), ...familiesOf(p).map(familyName), ...notes, ...set, p.gender].join(' '));
     return { p, strong, weak, strongWords: strong.split(' '), weakWords: weak.split(' ').filter(Boolean), joined: strong.replace(/ /g, '') };
   });
   // Palabras "bonitas" para sugerir: nombres de perfume, marcas, familias, categorías y notas tal como se escriben.
@@ -55,7 +55,7 @@ export function createSearch({ products, brandName, familyName, categoryName, fa
     addTerm(p.name, 'perfume');
     if (brandName(p.brand)) addTerm(brandName(p.brand), 'marca');
     familiesOf(p).forEach((f) => familyName(f) && addTerm(familyName(f), 'familia'));
-    if (categoryName(p.category)) addTerm(categoryName(p.category), 'categoría');
+    categoryNamesOf(p).forEach((n) => addTerm(n, 'categoría'));
     ['top', 'heart', 'base'].flatMap((k) => p.notes?.[k] || []).forEach((n) => addTerm(n, 'nota'));
   }
 

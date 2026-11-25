@@ -62,15 +62,20 @@ function brandId(v, brands, fallback = null) {
   return v;
 }
 
+// Varias categorías por perfume. "category" guarda la primera, para lo que solo usa una.
+function cleanCategoryList(input, existing, categories) {
+  let list;
+  if (Array.isArray(input.categories)) list = [...new Set(input.categories.filter(Boolean))];
+  else if (input.category !== undefined) list = input.category ? [input.category] : [];
+  else list = Array.isArray(existing.categories) ? existing.categories : existing.category ? [existing.category] : [];
+  list = list.filter((id) => categories.some((c) => c.id === id)); // se ignoran las que ya no existen
+  if (list.length > 6) throw new ValidationError('Elige máximo 6 categorías por perfume.');
+  return { categories: list, category: list[0] || null };
+}
+
 // Familias de un perfume (los guardados antes de este cambio solo tienen "family").
 export const familiesOf = (p) => (Array.isArray(p?.families) && p.families.length ? p.families : p?.family ? [p.family] : []);
 
-function categoryId(v, categories, fallback = null) {
-  if (v === undefined) return fallback;
-  if (v === null || v === '') return null;
-  if (!categories.some((c) => c.id === v)) throw new ValidationError('La categoría no es válida.');
-  return v;
-}
 
 // Sets: de 2 a 6 perfumes, cada uno con su nombre, tamaño, color y foto propia (opcional).
 export const SET_MIN = 2;
@@ -149,7 +154,7 @@ export function cleanProduct(input, existing, { families, brands, categories = [
     kind,
     items,
     brand: brandId(input.brand, brands, existing.brand ?? null),
-    category: categoryId(input.category, categories, existing.category ?? null),
+    ...cleanCategoryList(input, existing, categories),
     families: familyList,
     family: familyList[0] || null,
     gender: oneOf(input.gender, GENDERS, 'El género', existing.gender || 'Unisex'),
@@ -217,18 +222,38 @@ export function cleanShop(input, existing = {}) {
   return { ...existing, protectionFee: fee };
 }
 
-export function cleanCategory(input, others) {
+// Categoría: nombre y, si es automática, su regla (ver src/categories.js).
+const RULE_TYPES = new Set(['cheapest', 'price_max', 'newest', 'tag', 'decants', 'sets']);
+export function cleanCategory(input, others, existing = {}) {
   const name = text(input.name, 'el nombre', { min: 1, max: 40 });
   if (others.some((c) => c.name.toLowerCase() === name.toLowerCase())) throw new ValidationError(`Ya existe una categoría llamada "${name}".`);
-  return { name };
+  if (input.rule === undefined) return { name, rule: existing.rule ?? null };
+  const type = input.rule?.type;
+  if (!type || type === 'manual') return { name, rule: null };
+  if (!RULE_TYPES.has(type)) throw new ValidationError('El tipo de categoría no es válido.');
+  let value = null;
+  if (type === 'cheapest' || type === 'newest') {
+    value = Number(input.rule.value);
+    if (!Number.isInteger(value) || value < 1 || value > 100) throw new ValidationError('Escribe cuántos perfumes mostrar (de 1 a 100).');
+  } else if (type === 'price_max') {
+    value = parseMoney(input.rule.value);
+    if (!Number.isFinite(value) || value <= 0) throw new ValidationError('Escribe el precio máximo, por ejemplo 100 o 99.99.');
+  } else if (type === 'tag') {
+    value = text(input.rule.value, 'la etiqueta', { min: 1, max: 30 });
+  }
+  return { name, rule: { type, value } };
 }
 
 // Destacados: tarjeta con palabra grande al fondo, foto del frasco y a dónde lleva al tocarla.
-const LINK_TYPES = new Set(['none', 'minis', 'full', 'brand', 'product']);
-export function cleanSlide(input, existing, { fonts, brands, productIds }) {
+const LINK_TYPES = new Set(['none', 'minis', 'full', 'brand', 'product', 'category']);
+export function cleanSlide(input, existing, { fonts, brands, productIds, categories = [] }) {
   const word = text(input.word, 'la palabra', { min: 1, max: 40 });
   const type = oneOf(input.linkType, LINK_TYPES, 'El enlace', 'none');
   let linkId = null;
+  if (type === 'category') {
+    if (!categories.some((c) => c.id === input.linkId)) throw new ValidationError('Elige la categoría a la que lleva.');
+    linkId = input.linkId;
+  }
   if (type === 'brand') {
     if (!brands.some((b) => b.id === input.linkId)) throw new ValidationError('Elige la marca a la que lleva.');
     linkId = input.linkId;
