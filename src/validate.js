@@ -222,26 +222,11 @@ export function cleanShop(input, existing = {}) {
   return { ...existing, protectionFee: fee };
 }
 
-// Categoría: nombre y, si es automática, su regla (ver src/categories.js).
-const RULE_TYPES = new Set(['cheapest', 'price_max', 'newest', 'tag', 'decants', 'sets']);
-export function cleanCategory(input, others, existing = {}) {
+// Categoría: solo el nombre. Todas son manuales (se marcan en cada perfume).
+export function cleanCategory(input, others) {
   const name = text(input.name, 'el nombre', { min: 1, max: 40 });
   if (others.some((c) => c.name.toLowerCase() === name.toLowerCase())) throw new ValidationError(`Ya existe una categoría llamada "${name}".`);
-  if (input.rule === undefined) return { name, rule: existing.rule ?? null };
-  const type = input.rule?.type;
-  if (!type || type === 'manual') return { name, rule: null };
-  if (!RULE_TYPES.has(type)) throw new ValidationError('El tipo de categoría no es válido.');
-  let value = null;
-  if (type === 'cheapest' || type === 'newest') {
-    value = Number(input.rule.value);
-    if (!Number.isInteger(value) || value < 1 || value > 100) throw new ValidationError('Escribe cuántos perfumes mostrar (de 1 a 100).');
-  } else if (type === 'price_max') {
-    value = parseMoney(input.rule.value);
-    if (!Number.isFinite(value) || value <= 0) throw new ValidationError('Escribe el precio máximo, por ejemplo 100 o 99.99.');
-  } else if (type === 'tag') {
-    value = text(input.rule.value, 'la etiqueta', { min: 1, max: 30 });
-  }
-  return { name, rule: { type, value } };
+  return { name, rule: null };
 }
 
 // Destacados: tarjeta con palabra grande al fondo, foto del frasco y a dónde lleva al tocarla.

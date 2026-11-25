@@ -2498,3 +2498,6 @@ a {
   content: '★';
   color: var(--gold-soft);
 }
+.cat-add {
+  grid-template-columns: minmax(0, 1fr) auto;
+}

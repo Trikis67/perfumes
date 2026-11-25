@@ -3,7 +3,7 @@ import { NOTIFY_ENABLED } from '../src/config.js';
 import { slideHTML, WORD_POSITIONS, WORD_SIZES, MAX_LINEUP } from '../src/showcase.js';
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 import { setVisualHTML, isSet } from '../src/setvisual.js';
-import { RULES, ruleText, categoryMatcher } from '../src/categories.js';
+import { categoryMatcher } from '../src/categories.js';
 import { BOOKMARKLET, parsePaste, spanishName, matchFamily } from './fragrantica.js';
 import { bottleSVG } from '../src/bottle.js';
 
@@ -360,9 +360,8 @@ const PICKERS = {
   category: { field: 'categories', list: () => categories, max: 6, nuevo: '+ Nueva categoría', what: 'categoría', placeholder: 'Por ejemplo Árabes', label: 'catLabel' },
 };
 function pickChip(kind, x, on) {
-  const auto = kind === 'category' && x.rule?.type ? '<small>auto</small>' : '';
   const color = kind === 'family' ? x.color || '#B58A4C' : '#B58A4C';
-  return `<label class="fpick${kind === 'category' ? ' is-cat' : ''}" style="--c:${esc(color)}" ${auto ? `title="${esc(ruleText(x.rule, fmt))}. Además puedes marcarla a mano."` : ''}><input type="checkbox" name="${PICKERS[kind].field}" value="${esc(x.id)}" ${on ? 'checked' : ''}><span>${kind === 'family' ? '<i aria-hidden="true"></i>' : ''}${esc(x.name)}${auto}</span></label>`;
+  return `<label class="fpick${kind === 'category' ? ' is-cat' : ''}" style="--c:${esc(color)}"><input type="checkbox" name="${PICKERS[kind].field}" value="${esc(x.id)}" ${on ? 'checked' : ''}><span>${kind === 'family' ? '<i aria-hidden="true"></i>' : ''}${esc(x.name)}</span></label>`;
 }
 const pickChips = (kind, keep) =>
   PICKERS[kind].list().map((x) => pickChip(kind, x, keep.includes(x.id))).join('') + `<button type="button" class="fpick-new" data-pick-new>${PICKERS[kind].nuevo}</button>`;
@@ -1093,7 +1092,7 @@ function openProductEditor(product, onChange, allProducts = []) {
         <div class="field full"><label for="pDesc">Descripción</label><textarea id="pDesc" name="description" maxlength="400">${esc(p.description)}</textarea><span class="counter"></span></div>
         <div class="field full">
           <span class="label" id="catLabel">Categorías</span>
-          <span class="hint">Marca en qué categorías va este perfume (por ejemplo Más vendidos, Árabes, En oferta). Las que dicen <strong>auto</strong> se llenan solas, pero también puedes marcarlas a mano.</span>
+          <span class="hint">Marca en qué categorías va este perfume (por ejemplo Más vendidos, Árabes, En oferta). Si falta una, créala con "+ Nueva categoría" y queda guardada.</span>
           ${categoryPicker(categoriesOf(p))}
         </div>
         <div class="field full">
@@ -1900,7 +1899,6 @@ async function renderFamilies(view) {
     </div>
     <form class="cat-add" id="catAdd">
       <input name="name" maxlength="40" placeholder="Nueva categoría, por ejemplo Más baratos" aria-label="Nombre de la nueva categoría" autocomplete="off">
-      ${ruleFields(null)}
       <button class="btn btn-primary" type="submit">${ICON.plus}Agregar</button>
     </form>
     <div class="plist" id="clist"></div>
@@ -1977,7 +1975,7 @@ async function renderFamilies(view) {
       <div class="frow brow">
         <button class="frow-main" data-category="${esc(c.id)}">
           <span class="bmark" aria-hidden="true">${esc(c.name.slice(0, 1).toUpperCase())}</span>
-          <span class="prow-text"><span class="prow-name">${esc(c.name)}</span><span class="prow-meta">${esc(ruleText(c.rule, fmt))}</span></span>
+          <span class="prow-text"><span class="prow-name">${esc(c.name)}</span></span>
           <span class="chip ${c.products ? '' : 'chip-muted'}">${perfumes(c.products)}</span>
         </button>
       </div>`,
@@ -1986,17 +1984,14 @@ async function renderFamilies(view) {
       : '<div class="empty"><strong>Aún no hay categorías</strong>Escribe la primera arriba, o créala desde un perfume.</div>';
   }
   drawCategories();
-  syncRule($('#catAdd'));
   $('#catAdd').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
     const input = form.elements.name;
     await withLoading(form.querySelector('button'), async () => {
       try {
-        await api('/api/admin/categories', { method: 'POST', body: { name: input.value, rule: readRule(form) } });
+        await api('/api/admin/categories', { method: 'POST', body: { name: input.value } });
         input.value = '';
-        form.elements.ruleType.value = 'manual';
-        syncRule(form);
         await loadCategories();
         drawCategories();
         toast('Categoría agregada');
@@ -2066,41 +2061,7 @@ async function renderFamilies(view) {
   }
 }
 
-/* ---------- Tipo de categoría: manual o automática (con su regla) ---------- */
-function ruleFields(rule) {
-  const type = rule?.type || 'manual';
-  return `
-  <div class="rule-fields">
-    <label class="rule-type"><span>Tipo</span><select name="ruleType">
-      <option value="manual" ${type === 'manual' ? 'selected' : ''}>Manual: yo elijo los perfumes</option>
-      <optgroup label="Automática (se llena sola)">${Object.entries(RULES)
-        .map(([id, r]) => `<option value="${id}" ${type === id ? 'selected' : ''}>${esc(r.label)}</option>`)
-        .join('')}</optgroup>
-    </select></label>
-    <label class="rule-value"><span></span><input name="ruleValue" value="${esc(rule?.value ?? '')}" autocomplete="off"></label>
-  </div>`;
-}
-// Muestra el campo del valor solo si la regla lo necesita (cuántos, precio o etiqueta).
-function syncRule(root, keepValue = false) {
-  const type = root.querySelector('[name=ruleType]').value;
-  const r = RULES[type];
-  const box = root.querySelector('.rule-value');
-  const input = box.querySelector('input');
-  box.hidden = !r?.value;
-  if (!r?.value) return;
-  box.querySelector('span').textContent = r.hint;
-  input.inputMode = r.value === 'text' ? 'text' : r.value === 'money' ? 'decimal' : 'numeric';
-  if (!keepValue || !input.value) input.value = r.def;
-}
-const readRule = (root) => {
-  const type = root.querySelector('[name=ruleType]').value;
-  return type === 'manual' ? { type: 'manual' } : { type, value: root.querySelector('[name=ruleValue]').value };
-};
-document.addEventListener('change', (e) => {
-  if (e.target.matches('[name=ruleType]')) syncRule(e.target.closest('.rule-fields').parentElement);
-});
-
-// Sirve para marcas y para categorías (las categorías además tienen su tipo: manual o automática).
+// Sirve para marcas y para categorías (las dos solo tienen nombre).
 const NAME_KINDS = {
   brand: { endpoint: '/api/admin/brands', label: 'Nombre de la marca', del: 'Borrar marca', none: 'Ningún perfume usa esta marca.', keep: 'quedan "sin marca"', confirm: 'Los perfumes de esta marca se quedan en la tienda, sin marca.', saved: 'Marca guardada', gone: 'Marca borrada' },
   category: { endpoint: '/api/admin/categories', label: 'Nombre de la categoría', del: 'Borrar categoría', none: 'Ningún perfume usa esta categoría.', keep: 'quedan "sin categoría"', confirm: 'Los perfumes de esta categoría se quedan en la tienda, sin categoría.', saved: 'Categoría guardada', gone: 'Categoría borrada' },
@@ -2119,7 +2080,6 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
       <div class="fields">
         <div class="field full"><label for="bName">${K.label}</label><input id="bName" name="name" value="${esc(brand.name)}" maxlength="40" required></div>
       </div>
-      ${kind === 'category' ? `<div class="cat-rule">${ruleFields(brand.rule)}<p class="hint">Automática: los perfumes entran solos según la regla. En los dos casos puedes marcarla a mano en cada perfume.</p></div>` : ''}
       <section class="card" style="margin-top:20px">
         <h2>${K.del}</h2>
         <p class="help">${brand.products ? `Sus ${perfumes(brand.products)} no se borran: ${K.keep}.` : K.none}</p>
@@ -2128,7 +2088,6 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
     </form>
     <div class="sheet-foot"><button class="btn btn-primary" id="bSave">Guardar cambios</button></div>`;
   document.body.appendChild(sheet);
-  if (kind === 'category') syncRule($('.cat-rule', sheet), true);
   const close = () => {
     sheet.classList.remove('is-open');
     setTimeout(() => {
@@ -2144,7 +2103,6 @@ function openBrandEditor(brand, onChange, kind = 'brand') {
     withLoading(e.currentTarget, async () => {
       try {
         const body = { name: $('#bName', sheet).value };
-        if (kind === 'category') body.rule = readRule($('.cat-rule', sheet));
         await api(`${K.endpoint}/${encodeURIComponent(brand.id)}`, { method: 'PUT', body });
         await onChange();
         toast(K.saved);
