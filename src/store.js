@@ -112,14 +112,20 @@ export function cardHTML(p) {
   </article>`;
 }
 
+// En teléfonos y pantallas táctiles las cosas aparecen UNA sola vez: si se reanimaran cada vez que
+// salen y entran al desplazarse, el desplazamiento se vería a tirones.
+export const isTouch = window.matchMedia('(hover: none), (pointer: coarse), (max-width: 760px)').matches;
+if (isTouch) document.documentElement.classList.add('is-touch');
+
 // Las tarjetas aparecen al entrar en pantalla, bajando o subiendo, desde el lado por donde llegan.
 const cardObserver = new IntersectionObserver(
   (entries) => {
     let n = 0;
     for (const en of entries) {
       if (en.isIntersecting) {
-        en.target.style.setProperty('--d', `${Math.min(n++, 4) * 70}ms`);
+        en.target.style.setProperty('--d', `${Math.min(n++, 4) * (isTouch ? 50 : 70)}ms`);
         en.target.classList.add('is-in');
+        if (isTouch) cardObserver.unobserve(en.target);
       } else {
         en.target.dataset.from = en.boundingClientRect.top < 0 ? 'top' : 'bottom';
         en.target.classList.remove('is-in');
@@ -345,7 +351,8 @@ function updateOrder() {
 function closeModal() {
   if (!modal.open) return;
   modal.classList.remove('is-open');
-  document.body.classList.remove('is-locked');
+  // Solo se desbloquea la página si no queda otra ventana abierta (por ejemplo el carrito debajo).
+  if (!document.querySelector('dialog[open]:not(#modal)')) document.body.classList.remove('is-locked');
   setTimeout(() => modal.close(), reduceMotion ? 0 : 220);
 }
 
@@ -509,6 +516,7 @@ const revealObserver = new IntersectionObserver(
         // Los hijos se numeran al aparecer (algunas listas se llenan después de cargar).
         [...en.target.children].forEach((c, i) => c.style.setProperty('--i', i));
         en.target.classList.add('is-in');
+        if (isTouch) revealObserver.unobserve(en.target);
       } else {
         en.target.dataset.from = en.boundingClientRect.top < 0 ? 'top' : 'bottom';
         en.target.classList.remove('is-in');

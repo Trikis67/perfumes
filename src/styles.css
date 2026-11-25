@@ -3461,3 +3461,244 @@ a.pill {
     padding: 24px;
   }
 }
+/* =========================================================
+   VERSIÓN TELÉFONO (pantallas de hasta 760 px)
+   Todo lo de aquí va al final para ganarle a las reglas de computadora.
+   ========================================================= */
+@media (max-width: 760px) {
+  /* ---------- Barra de arriba: nombre e íconos sin amontonarse ---------- */
+  .nav-inner {
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+  }
+  .logo {
+    justify-self: center;
+    font-size: 21px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .nav-end {
+    gap: 0;
+  }
+  .search-btn,
+  .cart-btn {
+    width: 40px;
+    height: 40px;
+    margin-right: 0;
+  }
+  /* WhatsApp sigue en el menú y en cada perfume; en la barra no cabe junto a la lupa y la bolsa */
+  .nav-end .wa-btn {
+    display: none;
+  }
+
+  /* ---------- Carrito: lista, recomendados deslizables, datos y una barra fija con el total ---------- */
+  .cart {
+    transform: translateY(28px);
+    transform-origin: 50% 100%;
+    transition: opacity 220ms ease, transform 380ms var(--ease);
+  }
+  .cart.is-open {
+    transform: none;
+  }
+  .cart-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(136px + env(safe-area-inset-bottom));
+  }
+  /* El contenido del carrito se "aplana" para poder poner los recomendados entre los productos y los datos */
+  .cart-main {
+    display: contents;
+  }
+  .cart-head {
+    order: 0;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    flex: none;
+    padding: 12px 16px;
+    background: var(--white);
+  }
+  .cart-head h2 {
+    font-size: 26px;
+  }
+  .cart-body {
+    order: 1;
+    flex: none;
+    overflow: visible;
+    padding: 0 16px;
+  }
+  .cart-recs {
+    order: 2;
+    flex: none;
+    overflow: visible;
+    padding: 18px 0 20px 16px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .cart-recs h3 {
+    margin-bottom: 12px;
+  }
+  .recs-grid {
+    display: flex;
+    gap: 12px;
+    padding-right: 16px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .recs-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .rec {
+    flex: 0 0 142px;
+    scroll-snap-align: start;
+  }
+  .rec-stage {
+    aspect-ratio: 1 / 1.1;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  .rec-stage::after {
+    display: none;
+  }
+  .rec-name {
+    font-size: 15px;
+  }
+  .rec-price {
+    font-size: 12px;
+  }
+  .rec-add {
+    min-height: 34px;
+    font-size: 12px;
+  }
+  .recs-grid.is-fresh .rec {
+    animation: rec-in-phone 420ms ease both;
+  }
+  @keyframes rec-in-phone {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  .cart-foot {
+    order: 3;
+    flex: none;
+    padding: 18px 16px 8px;
+    border-top: 0;
+  }
+  /* Barra fija abajo: total y botón de enviar siempre a mano */
+  .cart-checkout {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--white);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -12px 24px -18px rgb(0 0 0 / 0.35);
+  }
+  .cart-checkout .cart-total {
+    margin-bottom: 8px;
+  }
+  .cart-checkout .cart-total strong {
+    font-size: 21px;
+  }
+  .cart-checkout .btn {
+    min-height: 50px;
+  }
+  /* Mientras se escribe en el formulario (teclado abierto) la barra se esconde para no tapar el campo */
+  .cart:has(.cart-form :focus) .cart-checkout {
+    display: none;
+  }
+  .cart-line {
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 14px 0;
+  }
+  .cart-thumb {
+    width: 72px;
+    height: 90px;
+    transform: none !important;
+  }
+  .cart-name {
+    font-size: 18px;
+  }
+  .cart-empty {
+    padding: 48px 0;
+  }
+
+  /* ---------- Detalle del perfume: sube como hoja, sin giros 3D ---------- */
+  .modal {
+    transform: translateY(40px);
+    transition: opacity 220ms ease, transform 360ms var(--ease);
+  }
+  .modal.is-open {
+    transform: none;
+  }
+
+  /* ---------- Desplazamiento suave: apariciones simples (sin giros) y una sola vez ---------- */
+  .grid,
+  .rv-stagger {
+    perspective: none;
+  }
+  .js .card,
+  .js .card[data-from='top']:not(.is-in) {
+    transform: translateY(22px);
+    transform-origin: 50% 50%;
+    transition: opacity 500ms ease var(--d, 0ms), transform 600ms var(--ease) var(--d, 0ms);
+  }
+  .js .card.is-in {
+    transform: none;
+  }
+  .rv-stagger > *,
+  .rv-stagger[data-from='top']:not(.is-in) > *,
+  .perks-list.rv-stagger > * {
+    transform: translateY(16px);
+    transform-origin: 50% 50%;
+    transition: opacity 500ms ease calc(var(--i, 0) * 60ms), transform 600ms var(--ease) calc(var(--i, 0) * 60ms);
+  }
+  .rv-stagger.is-in > *,
+  .perks-list.rv-stagger.is-in > * {
+    transform: none;
+  }
+  /* Sin mouse no hay inclinación: las fotos quedan quietas mientras se desplaza */
+  .card-stage,
+  .card-stage > *,
+  .modal-visual > * {
+    transform: none;
+  }
+
+  /* ---------- Filtros: se deslizan de lado sin arrastrar la página ---------- */
+  .filters {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ---------- Buscador ---------- */
+  .search-body {
+    padding: 12px 14px 24px;
+  }
+  .search-row {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .search-thumb {
+    width: 46px;
+    height: 58px;
+  }
+  .search-text strong {
+    font-size: 16px;
+  }
+}

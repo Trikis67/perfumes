@@ -192,8 +192,10 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
     foot.innerHTML = `
       ${formHTML()}
       ${protectionHTML(false)}
-      <div class="cart-total"><span>Total <small>(${count()} ${count() === 1 ? 'producto' : 'productos'})</small></span><strong>${fmt(total())}</strong></div>
-      <a class="btn btn-block" id="cartSend" href="${esc(waLink(message()))}" target="_blank" rel="noopener">Enviar pedido por WhatsApp</a>
+      <div class="cart-checkout">
+        <div class="cart-total"><span>Total <small>(${count()} ${count() === 1 ? 'producto' : 'productos'})</small></span><strong>${fmt(total())}</strong></div>
+        <a class="btn btn-block" id="cartSend" href="${esc(waLink(message()))}" target="_blank" rel="noopener">Enviar pedido por WhatsApp</a>
+      </div>
       <button class="cart-continue" type="button" data-cart-close>Seguir comprando</button>`;
   }
 
@@ -278,7 +280,7 @@ export function createCart({ products, productById, fmt, esc, visualFor, brandNa
   function close() {
     if (!dialog.open) return;
     dialog.classList.remove('is-open');
-    document.body.classList.remove('is-locked');
+    if (!document.querySelector('dialog[open]:not(#cart)')) document.body.classList.remove('is-locked');
     setTimeout(() => dialog.close(), reduceMotion ? 0 : 260);
   }
   let toastTimer;

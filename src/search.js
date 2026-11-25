@@ -200,7 +200,7 @@ export function mountSearch({ search, products, fmt, esc, visualFor, brandName, 
   function close() {
     if (!panel.open) return;
     panel.classList.remove('is-open');
-    document.body.classList.remove('is-locked');
+    if (!document.querySelector('dialog[open]:not(#searchPanel)')) document.body.classList.remove('is-locked');
     setTimeout(() => panel.close(), reduceMotion ? 0 : 220);
   }
   document.getElementById('searchBtn').addEventListener('click', open);
