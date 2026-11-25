@@ -158,6 +158,8 @@ export function cleanProduct(input, existing, { families, brands, categories = [
     notes: notes(input.notes),
     prices: priceList,
     liquid: color(input.liquid, existing.liquid || '#B58A4C'),
+    // Link de una reseña (video de TikTok, YouTube…). Vacío = no se muestra nada en la tienda.
+    review: input.review === undefined ? (existing.review ?? null) : photoUrl(input.review, 'El link de review'),
     // En existencia (listo para enviar) o agotado. Si no se dice nada, queda como estaba (por defecto, en existencia).
     inStock: input.inStock === undefined ? existing.inStock !== false : !!input.inStock,
     shape: existing.shape || pickFromName(name, SHAPES),

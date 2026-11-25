@@ -176,6 +176,31 @@ const shuffled = (arr) => {
 };
 const pillStyle = ([bg, line, ink]) => `--pill-bg:${bg};--pill-line:${line};--pill-ink:${ink}`;
 
+// Recuadro "Ver review": dice en qué red está el video, sin mostrar el link.
+const REVIEW_SITES = [
+  [/tiktok\.com$/, 'TikTok'],
+  [/(youtube\.com|youtu\.be)$/, 'YouTube'],
+  [/instagram\.com$/, 'Instagram'],
+  [/(facebook\.com|fb\.watch)$/, 'Facebook'],
+  [/(x\.com|twitter\.com)$/, 'X'],
+];
+function reviewCard(url) {
+  if (!/^https:\/\/\S+$/.test(url || '')) return '';
+  let site = '';
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    site = REVIEW_SITES.find(([re]) => re.test(host))?.[1] || '';
+  } catch {
+    return '';
+  }
+  return `
+    <a class="review-card" id="modalReview" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+      <span class="review-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5.5v13l10.5-6.5Z"/></svg></span>
+      <span class="review-text"><strong>Ver review</strong><small>${site ? `Video en ${site}` : 'Reseña de este perfume'}</small></span>
+      <svg class="review-arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 16 16 8M10 8h6v6"/></svg>
+    </a>`;
+}
+
 let modal;
 let current = null;
 let qty = 1; // cantidad elegida en el detalle
@@ -218,7 +243,12 @@ export function openModal(id) {
       `<ul class="pills" id="modalTags">${tags.map(([kind, n, href], i) => `<li><a class="pill" style="${pillStyle(colors[i % colors.length])}" href="${esc(href)}" title="Ver todos: ${kind} ${esc(n)}">${esc(n)}</a></li>`).join('')}</ul>`,
     );
   $('#modalDesc').textContent = p.description;
-  // Notas como etiquetas: cada nivel con su propio color, también al azar.
+  // Review: recuadro para tocar (no se muestra el link). Sin link, no aparece nada.
+  $('#modalReview')?.remove();
+  const review = reviewCard(p.review);
+  if (review) $('#modalDesc').insertAdjacentHTML('afterend', review);
+  // Los aromas por etapas ya no se usan en el panel: no se muestran.
+  $('#modalNotes').hidden = true;
   $('#modalNotes').innerHTML = [
     ['Al aplicarlo', p.notes?.top],
     ['Después de un rato', p.notes?.heart],

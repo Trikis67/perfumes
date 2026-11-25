@@ -428,10 +428,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 const genderOptions = (sel) => ['Unisex', 'Femenino', 'Masculino'].map((g) => `<option ${g === sel ? 'selected' : ''}>${g}</option>`).join('');
-const notesFields = (n = {}) => `
-  <div class="field full"><label for="nTop">Huele a… al aplicarlo</label><input id="nTop" name="notes.top" value="${esc((n.top || []).join(', '))}" placeholder="Limón, Pimienta rosa"><span class="hint">Lo primero que se siente. Separa cada aroma con una coma.</span></div>
-  <div class="field"><label for="nHeart">Después de un rato</label><input id="nHeart" name="notes.heart" value="${esc((n.heart || []).join(', '))}" placeholder="Rosa, Jazmín"></div>
-  <div class="field"><label for="nBase">Al final del día</label><input id="nBase" name="notes.base" value="${esc((n.base || []).join(', '))}" placeholder="Vainilla, Madera"></div>`;
 /* ---------- Selector de color junto a la foto ---------- */
 // Fondos oscuros para la portada (el texto es claro) y tonos para el aura y las tarjetas.
 const BG_COLORS = ['#0C1D19', '#101A2B', '#2A1220', '#1E1813', '#221A2E', '#121416', '#16261F', '#2B2118'];
@@ -637,7 +633,6 @@ async function renderLaunch(view) {
           </div>
           <div class="field"><label for="lGender">Para</label><select id="lGender" name="gender">${genderOptions(u.gender)}</select></div>
           <div class="field full"><label for="lDesc">Descripción</label><textarea id="lDesc" name="description" maxlength="400">${esc(u.description)}</textarea><span class="counter"></span></div>
-          ${notesFields(u.notes)}
         </div>
       </section>
     </form>
@@ -978,8 +973,11 @@ function openProductEditor(product, onChange, allProducts = []) {
           </div>
         </div>
         <div class="field full"><label for="pDesc">Descripción</label><textarea id="pDesc" name="description" maxlength="400">${esc(p.description)}</textarea><span class="counter"></span></div>
-        ${notesFields(p.notes)}
         <div class="field full">
+          <label for="pReview">Link de review (opcional)</label>
+          <input id="pReview" name="review" type="url" inputmode="url" value="${esc(p.review || '')}" placeholder="https://www.tiktok.com/… o https://youtu.be/…" autocomplete="off">
+          <span class="hint">Un video o reseña del perfume (TikTok, YouTube, Instagram…). En la tienda no se ve el link: sale un recuadro "Ver review" para tocar. Si lo dejas vacío, no aparece nada.</span>
+        </div>        <div class="field full">
           <label for="pTag">Etiqueta (opcional)</label>
           <input id="pTag" name="tag" value="${esc(p.tag || '')}" maxlength="30" placeholder="Escribe una o elige un ejemplo">
           <span class="hint">Un aviso corto que aparece sobre la foto en la tienda para llamar la atención. Déjala vacía si no hace falta.</span>
