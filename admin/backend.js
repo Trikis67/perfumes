@@ -4,7 +4,7 @@
 // aunque alguien cambie este código, sin ser admin no puede escribir nada.
 import { supabase, supabaseReady, PHOTO_PREFIX } from '../src/supabase.js';
 import { PANEL_EMAIL_DOMAIN } from '../src/config.js';
-import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanSlide, slugify, ValidationError } from '../src/validate.js';
+import { cleanProduct, cleanUpcoming, cleanFamily, cleanBrand, cleanCategory, cleanShop, cleanSlide, slugify, ValidationError, DEFAULT_PROTECTION_FEE } from '../src/validate.js';
 import { SHOWCASE_FONTS } from '../src/fonts.js';
 
 export class ApiError extends Error {
@@ -101,9 +101,24 @@ async function removeImage(url) {
 
 /* ---------- Datos ---------- */
 const getSetting = async (key) => (await run(supabase.from('settings').select('value').eq('key', key).maybeSingle()))?.value ?? null;
-const setSetting = (key, value) => run(supabase.from('settings').upsert({ key, value }));
+async function setSetting(key, value) {
+  const { error } = await supabase.from('settings').upsert({ key, value });
+  // 23514: la base de datos todavía no acepta este ajuste (falta correr el SQL de categorías).
+  if (error?.code === '23514' && (key === 'categories' || key === 'shop'))
+    throw new ApiError(
+      `${key === 'shop' ? 'El Shipping Protection' : 'Las categorías'} aún no está activado en Supabase. Ejecuta el archivo supabase/agregar-categorias.sql en el SQL Editor (solo una vez).`,
+    );
+  fail(error);
+}
 const getFamilies = async () => (await getSetting('families')) || [];
 const getBrands = async () => (await getSetting('brands')) || [];
+const getCategories = async () => (await getSetting('categories')) || [];
+const catalogLists = async () => {
+  const [families, brands, categories] = await Promise.all([getFamilies(), getBrands(), getCategories()]);
+  return { families, brands, categories };
+};
+// Fotos subidas solo para los perfumes de un set (las copiadas de otro perfume no se borran).
+const ownSetPhotos = (p) => (p?.items || []).filter((it) => it.ownPhoto && it.photo).map((it) => it.photo);
 const rowToProduct = (r) => ({ ...r.data, id: r.id, visible: r.visible, sort: r.sort });
 const listProducts = async () => (await run(supabase.from('products').select('*').order('sort'))).map(rowToProduct);
 async function getProduct(id) {
@@ -132,8 +147,8 @@ const routes = [
     'POST',
     /^\/products$/,
     async (_, body) => {
-      const [list, families, brands] = await Promise.all([listProducts(), getFamilies(), getBrands()]);
-      const data = cleanProduct(body, {}, { families, brands });
+      const [list, lists] = await Promise.all([listProducts(), catalogLists()]);
+      const data = cleanProduct(body, {}, lists);
       const id = uniqueId(slugify(data.name), new Set(list.map((p) => p.id)));
       const sort = list.reduce((m, p) => Math.max(m, p.sort), -1) + 1;
       return saveProduct({ id, sort, visible: body.visible !== false, ...data });
@@ -143,11 +158,17 @@ const routes = [
     'PUT',
     /^\/products\/([^/]+)$/,
     async ([id], body) => {
-      const [existing, families, brands] = await Promise.all([getProduct(id), getFamilies(), getBrands()]);
+      const [existing, lists] = await Promise.all([getProduct(id), catalogLists()]);
       const visible = body.visible === undefined ? existing.visible : !!body.visible;
-      return saveProduct({ id, sort: existing.sort, visible, ...cleanProduct(body, existing, { families, brands }) });
+      const saved = await saveProduct({ id, sort: existing.sort, visible, ...cleanProduct(body, existing, lists) });
+      // Fotos de perfumes que se quitaron del set: ya no se usan.
+      const keep = new Set(ownSetPhotos(saved));
+      for (const url of ownSetPhotos(existing)) if (!keep.has(url)) await removeImage(url);
+      return saved;
     },
   ],
+  // Subir una foto suelta (para los perfumes de un set): devuelve su dirección.
+  ['POST', /^\/photos$/, async (_, __, form) => ({ url: await saveImage(form?.get('photo')) })],
   [
     'DELETE',
     /^\/products\/([^/]+)$/,
@@ -155,6 +176,7 @@ const routes = [
       const existing = await getProduct(id);
       await run(supabase.from('products').delete().eq('id', id));
       await removeImage(existing.photo);
+      for (const url of ownSetPhotos(existing)) await removeImage(url);
       return { ok: true };
     },
   ],
@@ -284,6 +306,64 @@ const routes = [
       for (const p of products.filter((x) => x.brand === id)) await saveProduct({ ...p, brand: null });
       if (upcoming?.brand === id) await setSetting('upcoming', { ...upcoming, brand: null });
       await setSetting('brands', list.filter((b) => b.id !== id));
+      return { ok: true };
+    },
+  ],
+
+  // Ajustes de la tienda (Shipping Protection)
+  ['GET', /^\/shop$/, async () => ({ protectionFee: DEFAULT_PROTECTION_FEE, ...((await getSetting('shop')) || {}) })],
+  [
+    'PUT',
+    /^\/shop$/,
+    async (_, body) => {
+      const next = cleanShop(body, (await getSetting('shop')) || {});
+      await setSetting('shop', next);
+      return next;
+    },
+  ],
+
+  // Categorías (Árabes, Nicho, Diseñador… las crea el dueño)
+  [
+    'GET',
+    /^\/categories$/,
+    async () => {
+      const [list, products] = await Promise.all([getCategories(), listProducts()]);
+      return list.map((c) => ({ ...c, products: products.filter((p) => p.category === c.id).length }));
+    },
+  ],
+  [
+    'POST',
+    /^\/categories$/,
+    async (_, body) => {
+      const list = await getCategories();
+      if (list.length >= 50) throw new ApiError('Máximo 50 categorías.');
+      const data = cleanCategory(body, list);
+      const item = { id: uniqueId(slugify(data.name), new Set(list.map((c) => c.id))), ...data };
+      await setSetting('categories', [...list, item]);
+      return item;
+    },
+  ],
+  [
+    'PUT',
+    /^\/categories\/([^/]+)$/,
+    async ([id], body) => {
+      const list = await getCategories();
+      const current = list.find((c) => c.id === id);
+      if (!current) throw new ApiError('Esa categoría no existe.', 404);
+      const updated = { ...current, ...cleanCategory(body, list.filter((c) => c.id !== id)) };
+      await setSetting('categories', list.map((c) => (c.id === id ? updated : c)));
+      return updated;
+    },
+  ],
+  [
+    'DELETE',
+    /^\/categories\/([^/]+)$/,
+    async ([id]) => {
+      const [list, products] = await Promise.all([getCategories(), listProducts()]);
+      if (!list.some((c) => c.id === id)) throw new ApiError('Esa categoría no existe.', 404);
+      // Sus perfumes quedan "sin categoría" (no se borran).
+      for (const p of products.filter((x) => x.category === id)) await saveProduct({ ...p, category: null });
+      await setSetting('categories', list.filter((c) => c.id !== id));
       return { ok: true };
     },
   ],

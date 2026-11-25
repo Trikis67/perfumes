@@ -2,13 +2,21 @@ import { request, login, logout, sessionStatus, changePassword, ApiError } from 
 import { NOTIFY_ENABLED } from '../src/config.js';
 import { slideHTML } from '../src/showcase.js';
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
+import { setVisualHTML, isSet } from '../src/setvisual.js';
+import { bottleSVG } from '../src/bottle.js';
 
-// Familias olfativas: vienen del servidor (el dueño las crea y edita en la pestaña Familias).
+// Familias olfativas: vienen del servidor. Se crean en la pestaña Catálogo o al momento, desde cada perfume.
 let families = [];
 const loadFamilies = async () => (families = await api('/api/admin/families'));
-// Marcas: las crea el dueño en la pestaña Catálogo (Dior, Creed, su propia línea…).
+// Marcas (Dior, Lattafa, su propia línea…): se crean en Catálogo o al momento, y quedan guardadas.
 let brands = [];
 const loadBrands = async () => (brands = await api('/api/admin/brands'));
+// Categorías (Árabes, Nicho, Diseñador…): igual que las marcas.
+let categories = [];
+const loadCategories = async () => (categories = await api('/api/admin/categories'));
+// Shipping Protection: quetzales que la tienda suma a cada precio.
+let shopSettings = { protectionFee: 5 };
+const loadShop = async () => (shopSettings = await api('/api/admin/shop'));
 
 /* =========================================================
    Utilidades
@@ -17,19 +25,20 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const app = $('#app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const fmt = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
+// Precios en quetzales guatemaltecos: Q1,250
+const fmt = (n) => 'Q' + Number(n || 0).toLocaleString('es-GT');
 const familyName = (id) => families.find((f) => f.id === id)?.name || '';
 const brandName = (id) => brands.find((b) => b.id === id)?.name || '';
-// 15 ml o menos = mini: perfume original rellenado en un frasco pequeño.
+const categoryName = (id) => categories.find((c) => c.id === id)?.name || '';
+// 15 ml o menos = decant: perfume original rellenado en un frasco pequeño.
 const MINI_MAX_ML = 15;
-const dateShort = (t) => new Date(t).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateShort = (t) => new Date(t).toLocaleDateString('es-GT', { day: 'numeric', month: 'short', year: 'numeric' });
 const toLocalInput = (iso) => {
   const d = new Date(iso);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 const daysUntil = (iso) => Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 86400000));
-const visualFor = (p) =>
-  p.photo ? `<img src="${esc(p.photo)}" alt="">` : noPhoto();
+const visualFor = (p) => (isSet(p) ? setVisualHTML(p.items) : p.photo ? `<img src="${esc(p.photo)}" alt="">` : noPhoto());
 
 const ICON = {
   spotlight:
@@ -241,6 +250,104 @@ const familyOptions = (sel) => families.map((f) => `<option value="${f.id}" ${f.
 const brandOptions = (sel) =>
   `<option value="" ${sel ? '' : 'selected'}>Sin marca</option>` +
   [...brands].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((b) => `<option value="${b.id}" ${b.id === sel ? 'selected' : ''}>${esc(b.name)}</option>`).join('');
+const categoryOptions = (sel) =>
+  `<option value="" ${sel ? '' : 'selected'}>Sin categoría</option>` +
+  categories.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+
+/* ---------- Listas donde se puede crear al momento (marca, familia, categoría) ---------- */
+// Se elige una que ya existe o se toca "+ Crear nueva…": queda guardada para los siguientes perfumes.
+const FAMILY_COLORS = ['#8A5A3B', '#C77B8B', '#D9A93A', '#A8541F', '#5E9A9A', '#5F7A5A', '#7E6178', '#4F6E86', '#B58A4C', '#2F2A33'];
+const CREATE_NEW = '__nuevo';
+const CREATABLE = {
+  brand: { what: 'marca', done: 'Marca creada y guardada', placeholder: 'Por ejemplo Lattafa', endpoint: '/api/admin/brands', reload: () => loadBrands(), options: (v) => brandOptions(v) },
+  family: {
+    what: 'familia',
+    done: 'Familia creada y guardada',
+    placeholder: 'Por ejemplo Gourmand',
+    endpoint: '/api/admin/families',
+    body: (name) => ({ name, text: '', color: FAMILY_COLORS.find((c) => !families.some((f) => f.color?.toUpperCase() === c)) || '#B58A4C' }),
+    reload: () => loadFamilies(),
+    options: (v) => familyOptions(v),
+  },
+  category: { what: 'categoría', done: 'Categoría creada y guardada', placeholder: 'Por ejemplo Árabes', endpoint: '/api/admin/categories', reload: () => loadCategories(), options: (v) => categoryOptions(v) },
+};
+function creatableSelect(kind, { id, name, value }) {
+  const c = CREATABLE[kind];
+  return `
+  <div class="creatable" data-kind="${kind}">
+    <select id="${id}" name="${name}" data-prev="${esc(value || '')}">${c.options(value)}<option value="${CREATE_NEW}">+ Crear nueva ${c.what}…</option></select>
+    <div class="creatable-new" hidden>
+      <input maxlength="40" placeholder="${esc(c.placeholder)}" aria-label="Nombre de la nueva ${c.what}" autocomplete="off">
+      <button type="button" class="btn btn-primary btn-sm" data-create>Crear</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-cancel-create>Cancelar</button>
+    </div>
+  </div>`;
+}
+function closeCreatable(box, value) {
+  const sel = $('select', box);
+  $('.creatable-new', box).hidden = true;
+  $('.creatable-new input', box).value = '';
+  sel.value = value;
+  sel.dataset.prev = value;
+  sel.dispatchEvent(new Event('input', { bubbles: true }));
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+async function createFromBox(box, btn) {
+  const kind = box.dataset.kind;
+  const c = CREATABLE[kind];
+  const input = $('.creatable-new input', box);
+  const name = input.value.trim();
+  if (!name) return input.focus();
+  // Si ya existe con ese nombre, simplemente se elige.
+  const list = kind === 'brand' ? brands : kind === 'family' ? families : categories;
+  const same = list.find((x) => x.name.toLowerCase() === name.toLowerCase());
+  if (same) {
+    closeCreatable(box, same.id);
+    return toast(`"${same.name}" ya existía: quedó elegida.`);
+  }
+  await withLoading(btn, async () => {
+    try {
+      const created = await api(c.endpoint, { method: 'POST', body: c.body ? c.body(name) : { name } });
+      await c.reload();
+      // Actualiza todas las listas de este tipo que estén abiertas, sin perder lo elegido.
+      $$(`.creatable[data-kind="${kind}"] select`).forEach((s) => {
+        const keep = s.value === CREATE_NEW ? s.dataset.prev : s.value;
+        s.innerHTML = c.options(keep) + `<option value="${CREATE_NEW}">+ Crear nueva ${c.what}…</option>`;
+        s.value = keep;
+      });
+      closeCreatable(box, created.id);
+      toast(c.done);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+}
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('.creatable select');
+  if (!sel) return;
+  const box = sel.closest('.creatable');
+  if (sel.value === CREATE_NEW) {
+    $('.creatable-new', box).hidden = false;
+    $('.creatable-new input', box).focus();
+  } else {
+    sel.dataset.prev = sel.value;
+    $('.creatable-new', box).hidden = true;
+  }
+});
+document.addEventListener('click', (e) => {
+  const box = e.target.closest('.creatable');
+  if (!box) return;
+  if (e.target.closest('[data-cancel-create]')) closeCreatable(box, $('select', box).dataset.prev);
+  const btn = e.target.closest('[data-create]');
+  if (btn) createFromBox(box, btn);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.closest('.creatable-new input')) return;
+  e.preventDefault();
+  const box = e.target.closest('.creatable');
+  createFromBox(box, $('[data-create]', box));
+});
+
 const genderOptions = (sel) => ['Unisex', 'Femenino', 'Masculino'].map((g) => `<option ${g === sel ? 'selected' : ''}>${g}</option>`).join('');
 const notesFields = (n = {}) => `
   <div class="field full"><label for="nTop">Huele a… al aplicarlo</label><input id="nTop" name="notes.top" value="${esc((n.top || []).join(', '))}" placeholder="Limón, Pimienta rosa"><span class="hint">Lo primero que se siente. Separa cada aroma con una coma.</span></div>
@@ -369,7 +476,8 @@ function readForm(form) {
   for (const el of form.elements) {
     if (!el.name) continue;
     if (el.type === 'radio' && !el.checked) continue; // en un grupo de opciones solo vale la marcada
-    const v = el.type === 'checkbox' ? el.checked : el.value;
+    // Mientras se escribe una marca/familia nueva, cuenta la que estaba elegida antes.
+    const v = el.type === 'checkbox' ? el.checked : el.value === CREATE_NEW ? el.dataset.prev || '' : el.value;
     if (el.name.startsWith('notes.')) out.notes[el.name.slice(6)] = v.split(',').map((s) => s.trim()).filter(Boolean);
     else if (el.name.startsWith('prices.')) (out.prices ||= {})[el.name.slice(7)] = v === '' ? '' : Number(String(v).replace(/\D/g, ''));
     else out[el.name] = v;
@@ -436,8 +544,8 @@ async function renderLaunch(view) {
           <div class="field full"><label for="lName">Nombre</label><input id="lName" name="name" value="${esc(u.name)}" maxlength="60" required></div>
           <div class="field"><label for="lEdition">Texto de la etiqueta</label><input id="lEdition" name="edition" value="${esc(u.edition)}" maxlength="60" placeholder="Llega en diciembre"></div>
           <div class="field"><label for="lLaunch">Fecha y hora del lanzamiento</label><input id="lLaunch" type="datetime-local" name="launch" value="${toLocalInput(u.launch)}" required></div>
-          <div class="field"><label for="lBrand">Marca</label><select id="lBrand" name="brand">${brandOptions(u.brand)}</select></div>
-          <div class="field"><label for="lFamily">Familia</label><select id="lFamily" name="family">${familyOptions(u.family)}</select></div>
+          <div class="field"><label for="lBrand">Marca</label>${creatableSelect('brand', { id: 'lBrand', name: 'brand', value: u.brand })}</div>
+          <div class="field"><label for="lFamily">Familia</label>${creatableSelect('family', { id: 'lFamily', name: 'family', value: u.family })}</div>
           <div class="field"><label for="lGender">Para</label><select id="lGender" name="gender">${genderOptions(u.gender)}</select></div>
           <div class="field full"><label for="lDesc">Descripción</label><textarea id="lDesc" name="description" maxlength="400">${esc(u.description)}</textarea><span class="counter"></span></div>
           ${notesFields(u.notes)}
@@ -623,13 +731,22 @@ async function renderLaunch(view) {
    Productos
    ========================================================= */
 async function renderProducts(view) {
-  let [list] = await Promise.all([api('/api/admin/products'), loadFamilies(), loadBrands()]);
+  let [list] = await Promise.all([api('/api/admin/products'), loadFamilies(), loadBrands(), loadCategories().catch(() => (categories = [])), loadShop()]);
   view.innerHTML = `
   <div class="view">
     <div class="view-head">
       <div><h1>Productos</h1><p id="pCount"></p></div>
       <button class="btn btn-primary" id="newProduct">${ICON.plus}Nuevo</button>
     </div>
+    <section class="card protection-card">
+      <h2>Shipping Protection</h2>
+      <p class="help">Este monto se suma <strong>siempre</strong> al precio de cada perfume, decant y set en la tienda. El cliente no lo ve aparte: al confirmar su pedido ve que su envío va protegido contra daños o pérdidas.</p>
+      <form class="protection-form" id="protectionForm" novalidate>
+        <div class="field"><label for="protectionFee">Monto por perfume</label><div class="money"><input id="protectionFee" name="protectionFee" inputmode="numeric" value="${esc(shopSettings.protectionFee)}" aria-describedby="protectionHint"></div></div>
+        <button class="btn btn-primary" type="submit">Guardar</button>
+      </form>
+      <span class="hint" id="protectionHint">Ejemplo: un perfume de Q300 se muestra en la tienda a ${fmt(300 + Number(shopSettings.protectionFee || 0))}.</span>
+    </section>
     <div class="toolbar">
       <label class="search">${ICON.search}<input type="search" id="pSearch" placeholder="Buscar perfume o marca" aria-label="Buscar perfume o marca"></label>
     </div>
@@ -638,7 +755,7 @@ async function renderProducts(view) {
 
   function draw() {
     const q = $('#pSearch').value.trim().toLowerCase();
-    const items = list.filter((p) => !q || [p.name, familyName(p.family), brandName(p.brand)].some((t) => t.toLowerCase().includes(q)));
+    const items = list.filter((p) => !q || [p.name, familyName(p.family), brandName(p.brand), categoryName(p.category)].some((t) => t.toLowerCase().includes(q)));
     const hidden = list.filter((p) => !p.visible).length;
     $('#pCount').textContent = `${list.length} perfumes${hidden ? `, ${hidden} ocultos` : ''}`;
     $('#plist').innerHTML = items.length
@@ -647,9 +764,9 @@ async function renderProducts(view) {
             const min = Math.min(...Object.values(p.prices));
             return `
         <button class="prow${p.visible ? '' : ' is-hidden'}" data-id="${esc(p.id)}" style="--liq:${esc(p.liquid)}">
-          <span class="thumb${p.photo ? ' has-photo' : ''}">${visualFor(p)}</span>
-          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([brandName(p.brand), familyName(p.family)].filter(Boolean).join(' · '))}${Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con minis' : ''}</span></span>
-          <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : !p.photo ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
+          <span class="thumb${p.photo || isSet(p) ? ' has-photo' : ''}${isSet(p) ? ' is-set' : ''}">${visualFor(p)}</span>
+          <span class="prow-text"><span class="prow-name">${esc(p.name)}</span><span class="prow-meta">${esc([isSet(p) ? `Set de ${p.items.length}` : '', brandName(p.brand), categoryName(p.category), familyName(p.family)].filter(Boolean).join(' · '))}${!isSet(p) && Object.keys(p.prices).some((ml) => ml <= MINI_MAX_ML) ? ' · con decants' : ''}</span></span>
+          <span class="prow-side">${fmt(min)}${!p.visible ? '<span class="chip chip-muted">Oculto</span>' : !p.photo && !isSet(p) ? '<span class="chip chip-gold">Sin foto</span>' : ''}</span>
         </button>`;
           })
           .join('')
@@ -657,11 +774,24 @@ async function renderProducts(view) {
   }
   draw();
   $('#pSearch').addEventListener('input', draw);
+  $('#protectionForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    withLoading(e.submitter, async () => {
+      try {
+        shopSettings = await api('/api/admin/shop', { method: 'PUT', body: { protectionFee: $('#protectionFee').value } });
+        $('#protectionFee').value = shopSettings.protectionFee;
+        $('#protectionHint').textContent = `Ejemplo: un perfume de Q300 se muestra en la tienda a ${fmt(300 + shopSettings.protectionFee)}.`;
+        toast(`Listo: se suman ${fmt(shopSettings.protectionFee)} a cada precio de la tienda.`);
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
   $('#plist').addEventListener('click', (e) => {
     const row = e.target.closest('[data-id]');
-    if (row) openProductEditor(list.find((p) => p.id === row.dataset.id), onChange);
+    if (row) openProductEditor(list.find((p) => p.id === row.dataset.id), onChange, list);
   });
-  $('#newProduct').addEventListener('click', () => openProductEditor(null, onChange));
+  $('#newProduct').addEventListener('click', () => openProductEditor(null, onChange, list));
 
   function onChange(updated, removedId) {
     if (removedId) list = list.filter((p) => p.id !== removedId);
@@ -671,9 +801,13 @@ async function renderProducts(view) {
   }
 }
 
-function openProductEditor(product, onChange) {
+function openProductEditor(product, onChange, allProducts = []) {
   const isNew = !product;
-  const p = product || { name: '', brand: null, family: families[0]?.id, gender: 'Unisex', description: '', notes: {}, prices: { 50: '', 100: '' }, liquid: '#B58A4C', shape: 'classic', cap: 'gold', visible: true, photo: null };
+  const p = product || { kind: 'perfume', items: [], name: '', brand: null, category: null, family: families[0]?.id, gender: 'Unisex', description: '', notes: {}, prices: { 50: '', 100: '' }, liquid: '#B58A4C', shape: 'classic', cap: 'gold', visible: true, photo: null };
+  // Set: cada perfume del set con su nombre, ml, color y foto. Se copian para no tocar el original hasta guardar.
+  let items = (p.items || []).map((it) => ({ ...it }));
+  const setPriceValue = isSet(p) ? Object.values(p.prices)[0] : '';
+  const catalogForSet = allProducts.filter((x) => !isSet(x) && x.id !== p.id);
   let pendingFile = null;
   let pendingUrl = null;
   let photo = p.photo;
@@ -693,7 +827,12 @@ function openProductEditor(product, onChange) {
       <button class="icon-btn" data-close aria-label="Cerrar">${ICON.close}</button>
     </div>
     <form class="sheet-body" id="pForm" novalidate>
-      <div class="photo-editor" style="--liq:${esc(p.liquid)}">
+      <div class="kind-pick" role="radiogroup" aria-label="Tipo de producto">
+        <label><input type="radio" name="kind" value="perfume" ${isSet(p) ? '' : 'checked'}><span><strong>Perfume</strong><small>Un perfume con sus tamaños</small></span></label>
+        <label><input type="radio" name="kind" value="set" ${isSet(p) ? 'checked' : ''}><span><strong>Set de perfumes</strong><small>Varios perfumes juntos, un precio</small></span></label>
+      </div>
+      <div class="set-preview" id="setPreview" data-for="set" style="--liq:${esc(p.liquid)}"></div>
+      <div class="photo-editor" data-for="perfume" style="--liq:${esc(p.liquid)}">
         <span class="thumb" id="pThumb"></span>
         <div class="btns">
           <label class="btn btn-primary btn-sm file-btn"><span id="photoLabel"></span><input type="file" accept="image/*" id="pPhoto" aria-label="Elegir foto"></label>
@@ -710,12 +849,20 @@ function openProductEditor(product, onChange) {
       </label>
       <div class="fields">
         <div class="field full"><label for="pName">Nombre</label><input id="pName" name="name" value="${esc(p.name)}" maxlength="60" required></div>
-        <div class="field full"><label for="pBrand">Marca</label><select id="pBrand" name="brand">${brandOptions(p.brand)}</select><span class="hint">Créalas en la pestaña Catálogo.</span></div>
-        <div class="field"><label for="pFamily">Familia</label><select id="pFamily" name="family">${familyOptions(p.family)}</select></div>
+        <div class="field full"><label for="pBrand">Marca</label>${creatableSelect('brand', { id: 'pBrand', name: 'brand', value: p.brand })}<span class="hint">Elige una que ya usaste o crea una nueva: queda guardada para los siguientes perfumes.</span></div>
+        <div class="field"><label for="pCategory">Categoría</label>${creatableSelect('category', { id: 'pCategory', name: 'category', value: p.category })}</div>
+        <div class="field"><label for="pFamily">Familia</label>${creatableSelect('family', { id: 'pFamily', name: 'family', value: p.family })}</div>
         <div class="field"><label for="pGender">Para</label><select id="pGender" name="gender">${genderOptions(p.gender)}</select></div>
-        <div class="field full sizes-editor">
+        <div class="field full set-editor" data-for="set">
+          <span class="label">Perfumes del set</span>
+          <span class="hint">Agrega de 2 a 6 perfumes. Cada uno puede tener su propio nombre, tamaño, color y foto, o puedes copiar uno de tu catálogo. En la tienda la imagen del set muestra <strong>todos</strong> juntos.</span>
+          <div class="set-rows" id="setRows"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="addSetItem">${ICON.plus}Agregar perfume al set</button>
+          <div class="field set-price-field"><label for="pSetPrice">Precio del set</label><div class="money"><input id="pSetPrice" name="setPrice" inputmode="numeric" value="${esc(setPriceValue)}" placeholder="Precio"></div><span class="hint">En quetzales, sin centavos. La tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span></div>
+        </div>
+        <div class="field full sizes-editor" data-for="perfume">
           <span class="label">Tamaños y precios</span>
-          <span class="hint">Agrega los tamaños en que vendes este perfume. Los de 15 ml o menos salen en la tienda como <strong>mini</strong> (perfume original en frasco pequeño).</span>
+          <span class="hint">Agrega los tamaños en que vendes este perfume, en quetzales. Los de 15 ml o menos salen en la tienda como <strong>decant</strong> (perfume original en frasco pequeño). A cada precio la tienda le suma ${fmt(shopSettings.protectionFee)} de Shipping Protection.</span>
           <div class="size-rows" id="sizeRows"></div>
           <div class="size-add">
             <div class="tag-examples" id="sizeChips" aria-label="Tamaños comunes"></div>
@@ -751,7 +898,7 @@ function openProductEditor(product, onChange) {
       .map(
         (ml) => `
       <div class="size-row">
-        <span class="size-ml">${ml} ml${ml <= MINI_MAX_ML ? '<small>Mini</small>' : ''}</span>
+        <span class="size-ml">${ml} ml${ml <= MINI_MAX_ML ? '<small>Decant</small>' : ''}</span>
         <div class="money"><input name="prices.${ml}" data-ml="${ml}" inputmode="numeric" value="${esc(priceValues[ml] ?? '')}" placeholder="Precio" aria-label="Precio de ${ml} ml"></div>
         <button type="button" class="icon-btn" data-remove-size="${ml}" aria-label="Quitar ${ml} ml" ${sizes.length === 1 ? 'disabled' : ''}>${ICON.trash}</button>
       </div>`,
@@ -797,6 +944,123 @@ function openProductEditor(product, onChange) {
     }
   });
 
+  /* ---------- Set de perfumes ---------- */
+  const SET_MIN = 2;
+  const SET_MAX = 6;
+  const SET_SHAPES = ['classic', 'tall', 'round', 'facet', 'flask'];
+  const kindNow = () => $('input[name=kind]:checked', form)?.value || 'perfume';
+  const newItem = () => ({ name: '', ml: 10, liquid: AURA_COLORS[items.length % AURA_COLORS.length], photo: null, ownPhoto: false, productId: null });
+  const itemThumb = (it, i) =>
+    it.photo ? `<img src="${esc(it.photo)}" alt="">` : bottleSVG({ liquid: it.liquid || '#B58A4C', shape: SET_SHAPES[i % SET_SHAPES.length], fill: 0.72 });
+  function drawSetPreview() {
+    $('#setPreview', sheet).innerHTML = items.length ? setVisualHTML(items) : noPhoto('Agrega perfumes al set');
+  }
+  function renderItems() {
+    $('#setRows', sheet).innerHTML = items
+      .map(
+        (it, i) => `
+      <div class="set-row">
+        <span class="set-row-n" aria-hidden="true">${i + 1}</span>
+        <label class="set-thumb" title="Subir la foto de este perfume">${itemThumb(it, i)}<span class="set-thumb-label">${it.photo ? 'Cambiar' : 'Foto'}</span><input type="file" accept="image/*" data-item-photo="${i}" aria-label="Foto del perfume ${i + 1}"></label>
+        <div class="set-row-fields">
+          ${
+            catalogForSet.length
+              ? `<select data-item-copy="${i}" aria-label="Copiar un perfume de mi catálogo"><option value="">Copiar de mi catálogo…</option>${catalogForSet
+                  .map((x) => `<option value="${esc(x.id)}" ${x.id === it.productId ? 'selected' : ''}>${esc(x.name)}${brandName(x.brand) ? ` · ${esc(brandName(x.brand))}` : ''}</option>`)
+                  .join('')}</select>`
+              : ''
+          }
+          <input data-k="name" data-i="${i}" value="${esc(it.name)}" maxlength="60" placeholder="Nombre del perfume ${i + 1}" aria-label="Nombre del perfume ${i + 1}">
+          <div class="set-row-line">
+            <div class="ml-input"><input data-k="ml" data-i="${i}" type="number" min="1" max="1000" inputmode="numeric" value="${esc(it.ml ?? '')}" aria-label="Mililitros del perfume ${i + 1}"><span>ml</span></div>
+            <label class="set-color" title="Color del frasco (si no tiene foto)" style="--c:${esc(it.liquid || '#B58A4C')}"><input type="color" data-k="liquid" data-i="${i}" value="${esc((it.liquid || '#B58A4C').toLowerCase())}" aria-label="Color del perfume ${i + 1}"></label>
+            ${it.photo ? `<button type="button" class="btn btn-ghost btn-sm" data-item-nophoto="${i}">Quitar foto</button>` : ''}
+          </div>
+        </div>
+        <button type="button" class="icon-btn" data-item-remove="${i}" aria-label="Quitar perfume ${i + 1} del set" ${items.length <= SET_MIN ? 'disabled' : ''}>${ICON.trash}</button>
+      </div>`,
+      )
+      .join('');
+    $('#addSetItem', sheet).hidden = items.length >= SET_MAX;
+    drawSetPreview();
+  }
+  function applyKind() {
+    const k = kindNow();
+    if (k === 'set' && items.length < SET_MIN) while (items.length < SET_MIN) items.push(newItem());
+    $$('[data-for]', sheet).forEach((el) => (el.hidden = el.dataset.for !== k));
+    if (k === 'set') renderItems();
+  }
+  form.addEventListener('change', (e) => {
+    if (e.target.name === 'kind') applyKind();
+  });
+  $('#setRows', sheet).addEventListener('input', (e) => {
+    const el = e.target.closest('[data-k]');
+    if (!el) return;
+    const i = Number(el.dataset.i);
+    const it = items[i];
+    const k = el.dataset.k;
+    it[k] = k === 'ml' ? (el.value === '' ? '' : Number(el.value)) : k === 'liquid' ? el.value.toUpperCase() : el.value;
+    if (k === 'liquid') {
+      const lab = el.closest('.set-row').querySelector('.set-thumb');
+      el.closest('.set-color').style.setProperty('--c', el.value);
+      if (!it.photo) {
+        lab.querySelector('svg')?.remove();
+        lab.insertAdjacentHTML('afterbegin', itemThumb(it, i));
+      }
+    }
+    drawSetPreview();
+  });
+  $('#setRows', sheet).addEventListener('change', async (e) => {
+    const copy = e.target.closest('[data-item-copy]');
+    if (copy) {
+      const it = items[Number(copy.dataset.itemCopy)];
+      const x = catalogForSet.find((y) => y.id === copy.value);
+      if (!x) {
+        it.productId = null;
+        return;
+      }
+      const sizes = Object.keys(x.prices).map(Number).sort((a, b) => a - b);
+      Object.assign(it, { productId: x.id, name: x.name, liquid: x.liquid || it.liquid, photo: x.photo || null, ownPhoto: false, ml: it.ml || sizes[0] || 10 });
+      return renderItems();
+    }
+    const file = e.target.closest('[data-item-photo]');
+    if (file?.files[0]) {
+      const it = items[Number(file.dataset.itemPhoto)];
+      const label = file.closest('.set-thumb');
+      await withLoading(label, async () => {
+        const fd = new FormData();
+        fd.append('photo', file.files[0]);
+        try {
+          const { url } = await api('/api/admin/photos', { method: 'POST', form: fd });
+          Object.assign(it, { photo: url, ownPhoto: true });
+          toast('Foto agregada al set. Toca Guardar para publicarla.');
+        } catch (err) {
+          toast(err.message, true);
+        }
+      });
+      renderItems();
+    }
+  });
+  sheet.addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-item-remove]');
+    if (remove) {
+      items.splice(Number(remove.dataset.itemRemove), 1);
+      return renderItems();
+    }
+    const noPic = e.target.closest('[data-item-nophoto]');
+    if (noPic) {
+      Object.assign(items[Number(noPic.dataset.itemNophoto)], { photo: null, ownPhoto: false });
+      return renderItems();
+    }
+    if (e.target.closest('#addSetItem')) {
+      if (items.length >= SET_MAX) return;
+      items.push(newItem());
+      renderItems();
+      $$('#setRows [data-k="name"]', sheet).at(-1)?.focus();
+    }
+  });
+  applyKind();
+
   function drawThumb() {
     const d = readForm(form);
     const thumb = $('#pThumb', sheet);
@@ -804,6 +1068,7 @@ function openProductEditor(product, onChange) {
     const src = pendingFile ? (pendingUrl ||= URL.createObjectURL(pendingFile)) : photo;
     thumb.classList.toggle('has-photo', !!src);
     thumb.parentElement.style.setProperty('--liq', d.liquid);
+    $('#setPreview', sheet).style.setProperty('--liq', d.liquid);
     const prevSrc = thumb.dataset.src || '';
     if (prevSrc !== (src || '')) {
       thumb.innerHTML = src ? `<img src="${esc(src)}" alt="">` : noPhoto('Sin foto');
@@ -826,8 +1091,9 @@ function openProductEditor(product, onChange) {
     $$('.tag-example', sheet).forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.tag === input.value)));
   });
   $$('.tag-example', sheet).forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.tag === p.tag)));
-  let baseline = JSON.stringify(readForm(form));
-  const dirty = () => pendingFile !== null || JSON.stringify(readForm(form)) !== baseline;
+  const snapshot = () => JSON.stringify([readForm(form), kindNow() === 'set' ? items : null]);
+  let baseline = snapshot();
+  const dirty = () => pendingFile !== null || snapshot() !== baseline;
 
   $('#pPhoto', sheet).addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -877,18 +1143,19 @@ function openProductEditor(product, onChange) {
     withLoading(e.currentTarget, async () => {
       try {
         const body = readForm(form);
+        if (body.kind === 'set') body.items = items.map(({ name, ml, liquid, photo, ownPhoto, productId }) => ({ name, ml, liquid, photo, ownPhoto, productId }));
         let saved = isNew
           ? await api('/api/admin/products', { method: 'POST', body })
           : await api(`/api/admin/products/${encodeURIComponent(p.id)}`, { method: 'PUT', body });
-        if (pendingFile) {
+        if (pendingFile && body.kind !== 'set') {
           const fd = new FormData();
           fd.append('photo', pendingFile);
           saved = await api(`/api/admin/products/${encodeURIComponent(saved.id)}/photo`, { method: 'POST', form: fd });
           pendingFile = null;
         }
         onChange(saved);
-        baseline = JSON.stringify(readForm(form));
-        toast(isNew ? 'Perfume creado. Ya está en la tienda.' : 'Cambios guardados');
+        baseline = snapshot();
+        toast(isNew ? (body.kind === 'set' ? 'Set creado. Ya está en la tienda.' : 'Perfume creado. Ya está en la tienda.') : 'Cambios guardados');
         close(true);
       } catch (err) {
         toast(err.message, true);
@@ -1054,7 +1321,7 @@ async function openSlideEditor(slide, onChange) {
           <label for="scLink">Al tocar la tarjeta, lleva a…</label>
           <select id="scLink" name="link">
             ${opt('none', 'Nada (solo decorativa)')}
-            ${opt('minis', 'Los minis')}
+            ${opt('minis', 'Los decants')}
             ${opt('full', 'Los frascos completos')}
             <optgroup label="Una marca">${[...brands].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((b) => opt(`brand:${b.id}`, b.name)).join('')}</optgroup>
             <optgroup label="Un perfume">${allProducts.map((p) => opt(`product:${p.id}`, p.name)).join('')}</optgroup>
@@ -1189,21 +1456,29 @@ async function openSlideEditor(slide, onChange) {
 /* =========================================================
    Familias olfativas
    ========================================================= */
-const FAMILY_COLORS = ['#8A5A3B', '#C77B8B', '#D9A93A', '#A8541F', '#5E9A9A', '#5F7A5A', '#7E6178', '#4F6E86', '#B58A4C', '#2F2A33'];
-const perfumes = (n) => `${n} ${n === 1 ? 'perfume' : 'perfumes'}`;
+const perfumes =(n) => `${n} ${n === 1 ? 'perfume' : 'perfumes'}`;
 
 async function renderFamilies(view) {
-  await Promise.all([loadFamilies(), loadBrands()]);
+  await Promise.all([loadFamilies(), loadBrands(), loadCategories()]);
   view.innerHTML = `
   <div class="view">
     <div class="view-head">
-      <div><h1>Marcas</h1><p>Las marcas que vendes. Aparecen en cada perfume y en el menú de la tienda.</p></div>
+      <div><h1>Marcas</h1><p>Las marcas que vendes. Aparecen en cada perfume y en el menú de la tienda. También puedes crearlas al momento desde cada perfume.</p></div>
     </div>
     <form class="brand-add" id="brandAdd">
       <input name="name" maxlength="40" placeholder="Nueva marca, por ejemplo Dior" aria-label="Nombre de la nueva marca" autocomplete="off">
       <button class="btn btn-primary" type="submit">${ICON.plus}Agregar</button>
     </form>
     <div class="plist" id="blist"></div>
+
+    <div class="view-head" style="margin-top:36px">
+      <div><h1>Categorías</h1><p>Agrupa tus perfumes como quieras: Árabes, Nicho, Diseñador, Para regalar… En la tienda aparecen como filtro.</p></div>
+    </div>
+    <form class="brand-add" id="catAdd">
+      <input name="name" maxlength="40" placeholder="Nueva categoría, por ejemplo Árabes" aria-label="Nombre de la nueva categoría" autocomplete="off">
+      <button class="btn btn-primary" type="submit">${ICON.plus}Agregar</button>
+    </form>
+    <div class="plist" id="clist"></div>
 
     <div class="view-head" style="margin-top:36px">
       <div><h1>Familias</h1><p>El tipo de aroma de cada perfume. Se muestra en el detalle de cada perfume.</p></div>
@@ -1256,6 +1531,52 @@ async function renderFamilies(view) {
     });
   });
 
+  function drawCategories() {
+    $('#clist').innerHTML = categories.length
+      ? categories
+          .map(
+            (c) => `
+      <div class="frow brow">
+        <button class="frow-main" data-category="${esc(c.id)}">
+          <span class="bmark" aria-hidden="true">${esc(c.name.slice(0, 1).toUpperCase())}</span>
+          <span class="prow-text"><span class="prow-name">${esc(c.name)}</span></span>
+          <span class="chip ${c.products ? '' : 'chip-muted'}">${perfumes(c.products)}</span>
+        </button>
+      </div>`,
+          )
+          .join('')
+      : '<div class="empty"><strong>Aún no hay categorías</strong>Escribe la primera arriba, o créala desde un perfume.</div>';
+  }
+  drawCategories();
+  $('#catAdd').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const input = form.elements.name;
+    await withLoading(form.querySelector('button'), async () => {
+      try {
+        await api('/api/admin/categories', { method: 'POST', body: { name: input.value } });
+        input.value = '';
+        await loadCategories();
+        drawCategories();
+        toast('Categoría agregada');
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
+  });
+  $('#clist').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-category]');
+    if (!b) return;
+    openBrandEditor(
+      categories.find((x) => x.id === b.dataset.category),
+      async () => {
+        await loadCategories();
+        drawCategories();
+      },
+      'category',
+    );
+  });
+
   function draw() {
     $('#flist').innerHTML = families
       .map(
@@ -1304,7 +1625,13 @@ async function renderFamilies(view) {
   }
 }
 
-function openBrandEditor(brand, onChange) {
+// Sirve para marcas y para categorías (solo tienen nombre).
+const NAME_KINDS = {
+  brand: { endpoint: '/api/admin/brands', label: 'Nombre de la marca', del: 'Borrar marca', none: 'Ningún perfume usa esta marca.', keep: 'quedan "sin marca"', confirm: 'Los perfumes de esta marca se quedan en la tienda, sin marca.', saved: 'Marca guardada', gone: 'Marca borrada' },
+  category: { endpoint: '/api/admin/categories', label: 'Nombre de la categoría', del: 'Borrar categoría', none: 'Ningún perfume usa esta categoría.', keep: 'quedan "sin categoría"', confirm: 'Los perfumes de esta categoría se quedan en la tienda, sin categoría.', saved: 'Categoría guardada', gone: 'Categoría borrada' },
+};
+function openBrandEditor(brand, onChange, kind = 'brand') {
+  const K = NAME_KINDS[kind];
   const sheet = document.createElement('dialog');
   sheet.className = 'sheet';
   sheet.setAttribute('aria-labelledby', 'bTitle');
@@ -1315,12 +1642,12 @@ function openBrandEditor(brand, onChange) {
     </div>
     <form class="sheet-body" id="bForm" novalidate>
       <div class="fields">
-        <div class="field full"><label for="bName">Nombre de la marca</label><input id="bName" name="name" value="${esc(brand.name)}" maxlength="40" required></div>
+        <div class="field full"><label for="bName">${K.label}</label><input id="bName" name="name" value="${esc(brand.name)}" maxlength="40" required></div>
       </div>
       <section class="card" style="margin-top:20px">
-        <h2>Borrar marca</h2>
-        <p class="help">${brand.products ? `Sus ${perfumes(brand.products)} no se borran: quedan "sin marca".` : 'Ningún perfume usa esta marca.'}</p>
-        <button type="button" class="btn btn-danger" id="bDelete" style="margin-top:12px">Borrar marca</button>
+        <h2>${K.del}</h2>
+        <p class="help">${brand.products ? `Sus ${perfumes(brand.products)} no se borran: ${K.keep}.` : K.none}</p>
+        <button type="button" class="btn btn-danger" id="bDelete" style="margin-top:12px">${K.del}</button>
       </section>
     </form>
     <div class="sheet-foot"><button class="btn btn-primary" id="bSave">Guardar cambios</button></div>`;
@@ -1339,9 +1666,9 @@ function openBrandEditor(brand, onChange) {
   $('#bSave', sheet).addEventListener('click', (e) =>
     withLoading(e.currentTarget, async () => {
       try {
-        await api(`/api/admin/brands/${encodeURIComponent(brand.id)}`, { method: 'PUT', body: { name: $('#bName', sheet).value } });
+        await api(`${K.endpoint}/${encodeURIComponent(brand.id)}`, { method: 'PUT', body: { name: $('#bName', sheet).value } });
         await onChange();
-        toast('Marca guardada');
+        toast(K.saved);
         close();
       } catch (err) {
         toast(err.message, true);
@@ -1349,11 +1676,11 @@ function openBrandEditor(brand, onChange) {
     }),
   );
   $('#bDelete', sheet).addEventListener('click', async () => {
-    if (!(await confirmDialog({ title: `¿Borrar ${brand.name}?`, text: 'Los perfumes de esta marca se quedan en la tienda, sin marca.', ok: 'Borrar', danger: true }))) return;
+    if (!(await confirmDialog({ title: `¿Borrar ${brand.name}?`, text: K.confirm, ok: 'Borrar', danger: true }))) return;
     try {
-      await api(`/api/admin/brands/${encodeURIComponent(brand.id)}`, { method: 'DELETE', body: {} });
+      await api(`${K.endpoint}/${encodeURIComponent(brand.id)}`, { method: 'DELETE', body: {} });
       await onChange();
-      toast('Marca borrada');
+      toast(K.gone);
       close();
     } catch (err) {
       toast(err.message, true);

@@ -3,24 +3,34 @@
 import { products as seedProducts, families as seedFamilies, brands as seedBrands, upcoming as seedUpcoming, WHATSAPP_NUMBER } from './data.js';
 import { bottleSVG } from './bottle.js';
 import { loadCatalog } from './api.js';
+import { isSet, setVisualHTML } from './setvisual.js';
+export { isSet };
 
 // Catálogo vivo desde el panel; si Supabase no responde, se usa el de respaldo.
 export const catalog = await loadCatalog({
   brands: seedBrands,
   families: seedFamilies,
   products: seedProducts,
+  categories: [],
   showcase: [],
   upcoming: { ...seedUpcoming, photos: [], silhouette: true },
 });
 export const { products, upcoming } = catalog;
 export const brands = catalog.brands || [];
 export const families = catalog.families || [];
+export const categories = catalog.categories || [];
 export const showcase = catalog.showcase || [];
+
+// Shipping Protection: se suma a TODOS los precios (perfumes, decants y sets). El monto se cambia en el panel.
+const fee = Number(catalog.shop?.protectionFee);
+export const PROTECTION_FEE = Number.isInteger(fee) && fee >= 0 ? fee : 5;
+for (const p of products) p.prices = Object.fromEntries(Object.entries(p.prices).map(([ml, v]) => [ml, Number(v) + PROTECTION_FEE]));
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-export const fmt = (n) => '$' + Number(n).toLocaleString('es-CO');
+// Precios en quetzales guatemaltecos: Q1,250
+export const fmt = (n) => 'Q' + Number(n).toLocaleString('es-GT');
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Ruta a la raíz del sitio desde la página actual ("./" en la portada, "../" en /tienda/).
@@ -30,22 +40,31 @@ export const shopUrl = (params = {}) => {
   return `${ROOT}tienda/${q ? `?${q}` : ''}`;
 };
 
-// 15 ml o menos = mini (perfume original rellenado en frasco pequeño).
+// 15 ml o menos = decant (perfume original rellenado en frasco pequeño).
+// (Por dentro se sigue llamando "mini" para no romper enlaces ni datos guardados.)
 export const MINI_MAX_ML = 15;
 export const sizesOf = (p) => Object.keys(p.prices).map(Number).sort((a, b) => a - b);
-export const hasMinis = (p) => sizesOf(p).some((ml) => ml <= MINI_MAX_ML);
-export const hasFull = (p) => sizesOf(p).some((ml) => ml > MINI_MAX_ML);
+// Un set es decant si todos sus perfumes son pequeños, y "completo" si alguno es grande.
+export const hasMinis = (p) => (isSet(p) ? p.items.every((it) => it.ml <= MINI_MAX_ML) : sizesOf(p).some((ml) => ml <= MINI_MAX_ML));
+export const hasFull = (p) => (isSet(p) ? p.items.some((it) => it.ml > MINI_MAX_ML) : sizesOf(p).some((ml) => ml > MINI_MAX_ML));
 export const minPrice = (p) => Math.min(...Object.values(p.prices));
 
 export const brandName = (id) => brands.find((b) => b.id === id)?.name || '';
 export const familyName = (id) => families.find((f) => f.id === id)?.name || '';
+export const categoryName = (id) => categories.find((c) => c.id === id)?.name || '';
 export const productById = Object.fromEntries(products.map((p) => [p.id, p]));
 export const usedBrands = brands.filter((b) => products.some((p) => p.brand === b.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+export const usedCategories = categories.filter((c) => products.some((p) => p.category === c.id));
 
 // La foto subida desde el panel; mientras no exista, un frasco dibujado provisional.
+// Los sets muestran todos sus perfumes juntos.
 export const bottleFor = (p, extra = {}) => bottleSVG({ liquid: p.liquid, shape: p.shape, cap: p.cap, ...extra });
 export const visualFor = (p, { lazy = true } = {}) =>
-  p.photo ? `<img class="product-photo" src="${esc(p.photo)}" alt="${esc(p.name)}" ${lazy ? 'loading="lazy"' : ''} decoding="async">` : bottleFor(p);
+  isSet(p)
+    ? setVisualHTML(p.items, { lazy })
+    : p.photo
+      ? `<img class="product-photo" src="${esc(p.photo)}" alt="${esc(p.name)}" ${lazy ? 'loading="lazy"' : ''} decoding="async">`
+      : bottleFor(p);
 
 /* ---------- WhatsApp ---------- */
 export const waLink = (text) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
@@ -62,7 +81,11 @@ export function cardHTML(p) {
     <div class="card-info">
       ${brand ? `<p class="card-brand">${esc(brand)}</p>` : ''}
       <h3 class="card-name"><button data-open="${esc(p.id)}">${esc(p.name)}</button></h3>
-      <p class="card-price">desde ${fmt(minPrice(p))}${hasMinis(p) ? '<span>· Mini</span>' : ''}</p>
+      ${
+        isSet(p)
+          ? `<p class="card-price">${fmt(minPrice(p))}<span>· Set de ${p.items.length}</span></p>`
+          : `<p class="card-price">desde ${fmt(minPrice(p))}${hasMinis(p) ? '<span>· Decant</span>' : ''}</p>`
+      }
       <button class="card-btn" data-open="${esc(p.id)}" tabindex="-1" aria-hidden="true">Ver perfume</button>
     </div>
   </article>`;
@@ -126,7 +149,7 @@ export function openModal(id) {
   $('#modalVisual').innerHTML = visualFor(p, { lazy: false });
   $('#modalBrand').textContent = brandName(p.brand);
   $('#modalName').textContent = p.name;
-  $('#modalMeta').textContent = [p.gender, familyName(p.family)].filter(Boolean).join(' · ');
+  $('#modalMeta').textContent = [isSet(p) ? 'Set de perfumes' : '', categoryName(p.category), p.gender, familyName(p.family)].filter(Boolean).join(' · ');
   $('#modalDesc').textContent = p.description;
   $('#modalNotes').innerHTML = [
     ['Al aplicarlo', p.notes?.top],
@@ -137,16 +160,28 @@ export function openModal(id) {
     .map(([t, n]) => `<div><dt>${t}</dt><dd>${esc(n.join(', '))}</dd></div>`)
     .join('');
 
-  const sizes = sizesOf(p);
-  const group = (title, list) =>
-    list.length
-      ? `<fieldset><legend>${title}</legend>${list
-          .map((ml) => `<label class="size"><input type="radio" name="size" value="${ml}"><span><strong>${ml} ml</strong>${fmt(p.prices[ml])}</span></label>`)
-          .join('')}</fieldset>`
-      : '';
-  $('#modalSizes').innerHTML = group('Mini', sizes.filter((ml) => ml <= MINI_MAX_ML)) + group('Frasco completo', sizes.filter((ml) => ml > MINI_MAX_ML));
-  const radios = $$('input[name="size"]', modal);
-  radios[radios.length - 1].checked = true;
+  modal.classList.toggle('is-set', isSet(p));
+  if (isSet(p)) {
+    // Un set tiene un solo precio: se muestra qué perfumes trae.
+    const ml = sizesOf(p)[0];
+    $('#modalSizes').innerHTML = `
+      <fieldset class="set-list"><legend>Este set trae ${p.items.length} perfumes</legend>
+        <ol>${p.items.map((it) => `<li><span class="set-dot" style="--c:${esc(it.liquid || '#B58A4C')}"></span><strong>${esc(it.name)}</strong><span>${it.ml} ml</span></li>`).join('')}</ol>
+        <p class="set-price"><span>Precio del set</span><strong>${fmt(p.prices[ml])}</strong></p>
+        <input type="radio" name="size" value="${ml}" checked hidden>
+      </fieldset>`;
+  } else {
+    const sizes = sizesOf(p);
+    const group = (title, list) =>
+      list.length
+        ? `<fieldset><legend>${title}</legend>${list
+            .map((ml) => `<label class="size"><input type="radio" name="size" value="${ml}"><span><strong>${ml} ml</strong>${fmt(p.prices[ml])}</span></label>`)
+            .join('')}</fieldset>`
+        : '';
+    $('#modalSizes').innerHTML = group('Decant', sizes.filter((ml) => ml <= MINI_MAX_ML)) + group('Frasco completo', sizes.filter((ml) => ml > MINI_MAX_ML));
+    const radios = $$('input[name="size"]', modal);
+    radios[radios.length - 1].checked = true;
+  }
   updateOrder();
 
   modal.showModal();
@@ -157,8 +192,13 @@ export function openModal(id) {
 function updateOrder() {
   const ml = Number($('input[name="size"]:checked', modal)?.value);
   const brand = brandName(current.brand);
-  const kindLabel = ml <= MINI_MAX_ML ? 'mini de ' : '';
-  $('#modalOrder').href = waLink(`Hola, quiero pedir ${kindLabel}${current.name}${brand ? ` de ${brand}` : ''} en ${ml} ml (${fmt(current.prices[ml])}). Mi ciudad es: `);
+  if (isSet(current)) {
+    const list = current.items.map((it) => `${it.name} ${it.ml} ml`).join(', ');
+    $('#modalOrder').href = waLink(`Hola, quiero pedir el set ${current.name}${brand ? ` de ${brand}` : ''} (${list}) por ${fmt(current.prices[ml])}, con Shipping Protection. Mi ciudad es: `);
+    return;
+  }
+  const kindLabel = ml <= MINI_MAX_ML ? 'decant de ' : '';
+  $('#modalOrder').href = waLink(`Hola, quiero pedir ${kindLabel}${current.name}${brand ? ` de ${brand}` : ''} en ${ml} ml (${fmt(current.prices[ml])}), con Shipping Protection. Mi ciudad es: `);
 }
 
 function closeModal() {
@@ -168,8 +208,24 @@ function closeModal() {
   setTimeout(() => modal.close(), reduceMotion ? 0 : 220);
 }
 
+// Aviso de Shipping Protection justo antes de confirmar el pedido (sin precio aparte: ya va incluido).
+const PROTECTION_HTML = `
+  <details class="protection" open>
+    <summary>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6Z"/><path d="m8.8 12.2 2.2 2.2 4.4-4.6"/></svg>
+      <span><strong>Shipping Protection incluido</strong><small>Tu pedido llega bien o lo resolvemos nosotros</small></span>
+    </summary>
+    <ul>
+      <li>Nos aseguramos de que tu pedido llegue completo y en perfecto estado hasta tu puerta.</li>
+      <li>Si llega roto, dañado, con fugas o se pierde en el camino, nos hacemos responsables: te lo reponemos sin costo o te devolvemos tu dinero.</li>
+      <li>Empacamos cada perfume con protección especial y te damos seguimiento de tu envío.</li>
+      <li>Solo envíanos fotos o un video por WhatsApp dentro de las 48 horas después de recibirlo.</li>
+    </ul>
+  </details>`;
+
 function bindModal() {
   modal = $('#modal');
+  $('#modalOrder').insertAdjacentHTML('beforebegin', PROTECTION_HTML);
   $('#modalSizes').addEventListener('change', updateOrder);
   $('#modalClose').addEventListener('click', closeModal);
   modal.addEventListener('cancel', (e) => {

@@ -41,7 +41,8 @@ function prices(v) {
     const size = Number(ml);
     if (!Number.isInteger(size) || size < 1 || size > 1000) throw new ValidationError('Tamaño en ml no válido.');
     if (price === '' || price == null) continue;
-    const value = Number(String(price).replace(/[.\s$]/g, ''));
+    // Quetzales enteros: se ignoran "Q", comas, puntos y espacios (Q1,250 → 1250).
+    const value = Number(String(price).replace(/[.,\s$Qq]/g, ''));
     if (!Number.isFinite(value) || value < 0 || value > 50_000_000) throw new ValidationError('Precio no válido.');
     out[size] = Math.round(value);
   }
@@ -53,6 +54,41 @@ function brandId(v, brands, fallback = null) {
   if (v === null || v === '') return null;
   if (!brands.some((b) => b.id === v)) throw new ValidationError('La marca no es válida.');
   return v;
+}
+
+function categoryId(v, categories, fallback = null) {
+  if (v === undefined) return fallback;
+  if (v === null || v === '') return null;
+  if (!categories.some((c) => c.id === v)) throw new ValidationError('La categoría no es válida.');
+  return v;
+}
+
+// Sets: de 2 a 6 perfumes, cada uno con su nombre, tamaño, color y foto propia (opcional).
+export const SET_MIN = 2;
+export const SET_MAX = 6;
+function photoUrl(v) {
+  if (v == null || v === '') return null;
+  const s = String(v);
+  if (s.length > 400 || !/^https:\/\/[^\s"'<>]+$/.test(s)) throw new ValidationError('La foto de un perfume del set no es válida.');
+  return s;
+}
+function setItems(v) {
+  const list = Array.isArray(v) ? v : [];
+  if (list.length < SET_MIN) throw new ValidationError(`Un set necesita al menos ${SET_MIN} perfumes.`);
+  if (list.length > SET_MAX) throw new ValidationError(`Un set puede tener máximo ${SET_MAX} perfumes.`);
+  return list.map((it, i) => {
+    const n = i + 1;
+    const ml = Number(it?.ml);
+    if (!Number.isInteger(ml) || ml < 1 || ml > 1000) throw new ValidationError(`Escribe los ml del perfume ${n} del set (entre 1 y 1000).`);
+    return {
+      name: text(it?.name, `el nombre del perfume ${n} del set`, { min: 1, max: 60 }),
+      ml,
+      liquid: color(it?.liquid, '#B58A4C'),
+      photo: photoUrl(it?.photo),
+      ownPhoto: !!it?.ownPhoto && !!it?.photo, // la foto se subió solo para este set (se borra con él)
+      productId: typeof it?.productId === 'string' && /^[a-z0-9-]{1,60}$/.test(it.productId) ? it.productId : null,
+    };
+  });
 }
 
 export function slugify(s) {
@@ -74,18 +110,33 @@ function pickFromName(name, list) {
   return list[h % list.length];
 }
 
-export function cleanProduct(input, existing, { families, brands }) {
+export function cleanProduct(input, existing, { families, brands, categories = [] }) {
   const familyIds = new Set(families.map((f) => f.id));
   const name = text(input.name, 'el nombre', { min: 2, max: 60 });
+  const kind = input.kind === 'set' ? 'set' : 'perfume';
+  let items = null;
+  let priceList;
+  if (kind === 'set') {
+    items = setItems(input.items);
+    // Un set tiene un solo precio; se guarda con el total de ml para que la tienda lo trate como un tamaño.
+    const total = Math.min(1000, items.reduce((s, it) => s + it.ml, 0));
+    if (input.setPrice === '' || input.setPrice == null) throw new ValidationError('Escribe el precio del set.');
+    priceList = prices({ [total]: input.setPrice });
+  } else {
+    priceList = prices(input.prices);
+  }
   return {
     name,
+    kind,
+    items,
     brand: brandId(input.brand, brands, existing.brand ?? null),
+    category: categoryId(input.category, categories, existing.category ?? null),
     family: oneOf(input.family, familyIds, 'La familia', existing.family || families[0]?.id),
     gender: oneOf(input.gender, GENDERS, 'El género', existing.gender || 'Unisex'),
     description: text(input.description, 'la descripción', { max: 400 }),
     tag: text(input.tag, 'la etiqueta', { max: 30 }) || null,
     notes: notes(input.notes),
-    prices: prices(input.prices),
+    prices: priceList,
     liquid: color(input.liquid, existing.liquid || '#B58A4C'),
     shape: existing.shape || pickFromName(name, SHAPES),
     cap: existing.cap || pickFromName(`${name}·`, CAPS),
@@ -123,6 +174,21 @@ export function cleanFamily(input, others) {
 export function cleanBrand(input, others) {
   const name = text(input.name, 'el nombre', { min: 1, max: 40 });
   if (others.some((b) => b.name.toLowerCase() === name.toLowerCase())) throw new ValidationError(`Ya existe una marca llamada "${name}".`);
+  return { name };
+}
+
+// Ajustes de la tienda. protectionFee: quetzales de Shipping Protection que se suman a cada precio.
+export const DEFAULT_PROTECTION_FEE = 5;
+export function cleanShop(input, existing = {}) {
+  const raw = String(input?.protectionFee ?? '').replace(/[.,\s$Qq]/g, '');
+  const fee = Number(raw);
+  if (raw === '' || !Number.isInteger(fee) || fee < 0 || fee > 1000) throw new ValidationError('Escribe un monto de protección entre Q0 y Q1,000 (sin centavos).');
+  return { ...existing, protectionFee: fee };
+}
+
+export function cleanCategory(input, others) {
+  const name = text(input.name, 'el nombre', { min: 1, max: 40 });
+  if (others.some((c) => c.name.toLowerCase() === name.toLowerCase())) throw new ValidationError(`Ya existe una categoría llamada "${name}".`);
   return { name };
 }
 

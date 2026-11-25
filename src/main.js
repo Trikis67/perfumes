@@ -166,7 +166,7 @@ function bindNotify(d) {
   const msg = $('#notifyMsg');
   const button = $('button', form);
   const defaultMsg = msg.textContent;
-  const launchDate = new Date(d.launch).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
+  const launchDate = new Date(d.launch).toLocaleDateString('es-GT', { day: 'numeric', month: 'long' });
   input.addEventListener('input', () => {
     if (form.dataset.state !== 'error') return;
     form.dataset.state = '';
@@ -207,7 +207,7 @@ else {
   const track = $('#scTrack');
   const linkOf = (x) =>
     x.linkType === 'minis'
-      ? shopUrl({ tipo: 'minis' })
+      ? shopUrl({ tipo: 'decants' })
       : x.linkType === 'full'
         ? shopUrl({ tipo: 'completo' })
         : x.linkType === 'brand' && x.linkId

@@ -3,6 +3,9 @@
 import {
   products,
   usedBrands,
+  usedCategories,
+  categoryName,
+  isSet,
   families,
   $,
   $$,
@@ -21,10 +24,13 @@ initPage();
 
 const form = $('#filters');
 const grid = $('#grid');
-const FIELDS = ['tipo', 'marca', 'para', 'familia', 'precio', 'orden'];
+const FIELDS = ['tipo', 'categoria', 'marca', 'para', 'familia', 'precio', 'orden'];
 
 // Opciones que dependen del catálogo.
 $('#fMarca').insertAdjacentHTML('beforeend', usedBrands.map((b) => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''));
+$('#fCategoria').insertAdjacentHTML('beforeend', usedCategories.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join(''));
+if (!usedCategories.length) $('#fCategoriaWrap').hidden = true;
+if (!products.some(isSet)) $('option[value="sets"]', form).remove();
 const usedFamilies = families.filter((f) => products.some((p) => p.family === f.id));
 $('#fFamilia').insertAdjacentHTML('beforeend', usedFamilies.map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join(''));
 
@@ -33,7 +39,8 @@ function readUrl() {
   const q = new URLSearchParams(location.search);
   for (const name of FIELDS) {
     const sel = form.elements[name];
-    const v = q.get(name) || '';
+    let v = q.get(name) || '';
+    if (name === 'tipo' && v === 'minis') v = 'decants'; // enlaces viejos
     sel.value = [...sel.options].some((o) => o.value === v) ? v : '';
   }
 }
@@ -41,7 +48,9 @@ const state = () => Object.fromEntries(FIELDS.map((n) => [n, form.elements[n].va
 
 function titleFor(s) {
   if (s.marca) return brandName(s.marca);
-  if (s.tipo === 'minis') return 'Minis';
+  if (s.categoria) return categoryName(s.categoria);
+  if (s.tipo === 'decants') return 'Decants';
+  if (s.tipo === 'sets') return 'Sets de perfumes';
   if (s.tipo === 'completo') return 'Frascos completos';
   if (s.para === 'Femenino') return 'Para ella';
   if (s.para === 'Masculino') return 'Para él';
@@ -54,7 +63,8 @@ function render() {
   const [min, max] = (s.precio || '-').split('-').map((v) => (v === '' ? null : Number(v)));
   let list = products.filter(
     (p) =>
-      (!s.tipo || (s.tipo === 'minis' ? hasMinis(p) : hasFull(p))) &&
+      (!s.tipo || (s.tipo === 'decants' ? hasMinis(p) : s.tipo === 'sets' ? isSet(p) : hasFull(p))) &&
+      (!s.categoria || p.category === s.categoria) &&
       (!s.marca || p.brand === s.marca) &&
       (!s.para || p.gender === s.para) &&
       (!s.familia || p.family === s.familia) &&
@@ -96,7 +106,7 @@ const clear = () => {
 $('#clearFilters').addEventListener('click', clear);
 $('#clearFilters2').addEventListener('click', clear);
 
-// Los enlaces "Tienda" y "Minis" dentro de esta misma página solo cambian los filtros (sin recargar).
+// Los enlaces "Tienda" y "Decants" dentro de esta misma página solo cambian los filtros (sin recargar).
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href^="./"], a[href^="../tienda/"]');
   if (!a) return;

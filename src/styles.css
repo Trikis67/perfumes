@@ -865,6 +865,86 @@ button {
     transform: scale(1.04);
   }
 }
+/* Sets: todos los perfumes del set juntos en la misma imagen */
+.set-visual {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.set-item {
+  position: relative;
+  z-index: var(--z, 1);
+  flex: 1 1 0;
+  min-width: 0;
+  height: calc(100% - var(--d, 0) * 12%);
+  margin-inline: calc(-14% / var(--n, 1));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.set-item .bottle,
+.set-item .product-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.12));
+}
+.set-item .product-photo {
+  border-radius: 6px;
+}
+.card-stage:has(.set-visual) {
+  padding: 12% 10% 10%;
+}
+.card-stage .set-visual .product-photo {
+  object-fit: contain;
+}
+.set-list {
+  display: block !important;
+}
+.set-list ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.set-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.set-list li strong {
+  flex: 1;
+  font-weight: 500;
+}
+.set-list li span:last-child {
+  color: var(--muted);
+}
+.set-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: none;
+}
+.set-price {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 14px 0 0;
+}
+.set-price span {
+  color: var(--muted);
+  font-size: 14px;
+}
+.set-price strong {
+  font-size: 22px;
+  font-weight: 500;
+}
 .card-tag {
   position: absolute;
   top: 10px;
@@ -2080,4 +2160,76 @@ button {
     animation-timeline: view();
     animation-range: entry 0% entry 80%;
   }
+}
+
+/* Detalle de un set (va al final para ganarle a las reglas de foto única) */
+.modal-visual:has(.set-visual) {
+  padding: 40px 28px;
+  aspect-ratio: auto;
+}
+.modal-visual .set-visual {
+  min-height: 300px;
+}
+.modal-visual .set-visual .bottle {
+  width: 100%;
+  height: 100%;
+}
+.modal-visual .set-visual .product-photo {
+  object-fit: contain;
+}
+@media (max-width: 760px) {
+  .modal-visual:has(.set-visual) {
+    height: 300px;
+    padding: 28px 16px 16px;
+  }
+  .modal-visual .set-visual {
+    min-height: 0;
+  }
+}
+/* Shipping Protection (antes de pedir por WhatsApp) */
+.protection {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream-2);
+}
+.protection summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+.protection summary::-webkit-details-marker {
+  display: none;
+}
+.protection summary svg {
+  flex: none;
+  color: var(--ink);
+}
+.protection summary span {
+  display: grid;
+  gap: 1px;
+}
+.protection summary strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.protection summary small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.protection ul {
+  margin: 12px 0 0;
+  padding: 12px 0 0 18px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.modal-visual .set-visual {
+  max-width: calc(var(--n, 2) * 150px);
+  margin: 0 auto;
 }

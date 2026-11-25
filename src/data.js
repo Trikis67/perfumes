@@ -60,7 +60,7 @@ export const products = [
     liquid: '#9C6233',
     shape: 'classic',
     cap: 'dark',
-    prices: { 50: 189000, 100: 289000 },
+    prices: { 50: 350, 100: 535 },
     notes: { top: ['Pimienta rosa', 'Cardamomo'], heart: ['Cedro del Atlas', 'Iris'], base: ['Vetiver', 'Cuero suave'] },
     description: 'Un amaderado seco y elegante que se siente como una chaqueta de lana en una noche fría.',
     tag: 'Más vendido',
@@ -73,7 +73,7 @@ export const products = [
     liquid: '#B0465E',
     shape: 'round',
     cap: 'gold',
-    prices: { 50: 209000, 100: 319000 },
+    prices: { 50: 385, 100: 590 },
     notes: { top: ['Frambuesa', 'Azafrán'], heart: ['Rosa de Damasco', 'Peonía'], base: ['Oud', 'Pachulí'] },
     description: 'Rosa profunda con un fondo de oud. Intensa, para ocasiones en que quieres ser recordada.',
   },
@@ -85,7 +85,7 @@ export const products = [
     liquid: '#E3C15A',
     shape: 'tall',
     cap: 'light',
-    prices: { 50: 159000, 100: 239000 },
+    prices: { 50: 295, 100: 445 },
     notes: { top: ['Bergamota', 'Limón de Amalfi'], heart: ['Neroli', 'Flor de azahar'], base: ['Almizcle blanco'] },
     description: 'Luz de mañana en un frasco. Fresco, limpio y fácil de llevar todos los días.',
   },
@@ -97,7 +97,7 @@ export const products = [
     liquid: '#B8601F',
     shape: 'facet',
     cap: 'gold',
-    prices: { 50: 219000, 100: 329000 },
+    prices: { 50: 405, 100: 610 },
     notes: { top: ['Canela', 'Mandarina'], heart: ['Ámbar gris', 'Labdanum'], base: ['Vainilla de Madagascar', 'Benjuí'] },
     description: 'Cálido y especiado, con una estela de vainilla que dura hasta el día siguiente.',
     tag: 'Nuevo',
@@ -110,7 +110,7 @@ export const products = [
     liquid: '#7FB3B5',
     shape: 'flask',
     cap: 'dark',
-    prices: { 50: 169000, 100: 249000 },
+    prices: { 50: 315, 100: 460 },
     notes: { top: ['Sal marina', 'Pomelo'], heart: ['Salvia', 'Algas'], base: ['Madera de deriva', 'Ambroxán'] },
     description: 'La brisa del mar en la piel. Ligero, mineral y muy limpio.',
   },
@@ -122,7 +122,7 @@ export const products = [
     liquid: '#A9C08E',
     shape: 'classic',
     cap: 'light',
-    prices: { 50: 179000, 100: 269000 },
+    prices: { 50: 330, 100: 500 },
     notes: { top: ['Hoja de higuera', 'Bergamota'], heart: ['Leche de higo', 'Coco'], base: ['Cedro blanco'] },
     description: 'Verde y cremoso a la vez. Huele a una tarde de verano bajo una higuera.',
   },
@@ -134,7 +134,7 @@ export const products = [
     liquid: '#8E4A1C',
     shape: 'tall',
     cap: 'wood',
-    prices: { 50: 229000, 100: 349000 },
+    prices: { 50: 425, 100: 645 },
     notes: { top: ['Ron', 'Clavo'], heart: ['Hoja de tabaco', 'Miel'], base: ['Haba tonka', 'Cacao'] },
     description: 'Dulce, ahumado y adictivo. Un clásico de noche para el frío.',
     tag: 'Edición limitada',
@@ -147,7 +147,7 @@ export const products = [
     liquid: '#E8C9A8',
     shape: 'facet',
     cap: 'gold',
-    prices: { 50: 199000, 100: 299000 },
+    prices: { 50: 370, 100: 555 },
     notes: { top: ['Pera', 'Mandarina'], heart: ['Jazmín sambac', 'Tuberosa'], base: ['Sándalo', 'Almizcle'] },
     description: 'Floral blanco, luminoso y sensual. Para quien quiere dejar estela.',
   },
@@ -159,7 +159,7 @@ export const products = [
     liquid: '#4F6E86',
     shape: 'flask',
     cap: 'dark',
-    prices: { 50: 189000, 100: 289000 },
+    prices: { 50: 350, 100: 535 },
     notes: { top: ['Limón', 'Jengibre'], heart: ['Lavanda', 'Geranio'], base: ['Vetiver de Haití', 'Musgo'] },
     description: 'Elegante y versátil, funciona en la oficina y en una cena.',
   },
@@ -171,7 +171,7 @@ export const products = [
     liquid: '#C4CE74',
     shape: 'round',
     cap: 'light',
-    prices: { 50: 149000, 100: 219000 },
+    prices: { 50: 275, 100: 405 },
     notes: { top: ['Té verde', 'Lima'], heart: ['Menta', 'Jazmín'], base: ['Almizcle', 'Ámbar claro'] },
     description: 'Ligero y relajante. Una ducha fría convertida en perfume.',
   },
@@ -183,7 +183,7 @@ export const products = [
     liquid: '#A2402E',
     shape: 'round',
     cap: 'wood',
-    prices: { 50: 239000, 100: 359000 },
+    prices: { 50: 445, 100: 665 },
     notes: { top: ['Cereza', 'Pimienta negra'], heart: ['Sándalo', 'Rosa'], base: ['Cuero', 'Vainilla'] },
     description: 'Cremoso, oscuro y especiado. Una fragancia con mucha personalidad.',
   },
@@ -195,7 +195,7 @@ export const products = [
     liquid: '#D9A6B4',
     shape: 'classic',
     cap: 'gold',
-    prices: { 50: 179000, 100: 269000 },
+    prices: { 50: 330, 100: 500 },
     notes: { top: ['Bergamota', 'Sal'], heart: ['Peonía', 'Magnolia'], base: ['Almizcle blanco', 'Cedro'] },
     description: 'Una flor fresca con un toque salino. Delicada y moderna.',
   },
@@ -208,13 +208,13 @@ export const brands = [
   { id: 'casa-ambar', name: 'Casa Ámbar' },
 ];
 
-// Ejemplo: reparte las marcas y agrega minis (5 y 10 ml, perfume original rellenado en frasco pequeño).
-// Cualquier tamaño de 15 ml o menos se muestra en la tienda como "mini".
+// Ejemplo: reparte las marcas y agrega decants (5 y 10 ml, perfume original rellenado en frasco pequeño).
+// Cualquier tamaño de 15 ml o menos se muestra en la tienda como "decant". Precios en quetzales.
 products.forEach((p, i) => {
   p.brand = brands[i % brands.length].id;
   if (i % 3 !== 2) {
     const base = p.prices[50] ?? Object.values(p.prices)[0];
-    p.prices = { 5: Math.round((base * 0.16) / 1000) * 1000, 10: Math.round((base * 0.28) / 1000) * 1000, ...p.prices };
+    p.prices = { 5: Math.round((base * 0.16) / 5) * 5, 10: Math.round((base * 0.28) / 5) * 5, ...p.prices };
   }
 });
 upcoming.brand = brands[0].id;

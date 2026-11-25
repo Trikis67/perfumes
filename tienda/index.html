@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0b0c" />
     <title>Tienda · Ánima</title>
-    <meta name="description" content="Catálogo de perfumes originales de las mejores marcas, en frasco completo o en mini. Pide por WhatsApp." />
+    <meta name="description" content="Catálogo de perfumes originales de las mejores marcas, en frasco completo o en decant. Pide por WhatsApp." />
     <script>document.documentElement.classList.add('js');</script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +25,7 @@
         <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span></button>
         <nav class="nav-links" aria-label="Principal">
           <a href="../tienda/" class="nav-shop">Tienda</a>
-          <a href="../tienda/?tipo=minis">Minis</a>
+          <a href="../tienda/?tipo=decants">Decants</a>
           <a href="../#marcas">Marcas</a>
         </nav>
         <a href="../" class="logo" aria-label="Ánima, inicio">Ánima</a>
@@ -44,7 +44,7 @@
     <div class="menu" id="menu" hidden>
       <nav aria-label="Menú">
         <a href="../tienda/">Tienda</a>
-        <a href="../tienda/?tipo=minis">Minis</a>
+        <a href="../tienda/?tipo=decants">Decants</a>
         <a href="../#marcas">Marcas</a>
         <a href="../#preguntas">Preguntas</a>
         <a href="#" data-whatsapp="general">Escríbenos</a>
@@ -64,11 +64,13 @@
         <span class="filters-label">Filtrar</span>
         <label class="select"><span class="sr-only">Tipo</span>
           <select name="tipo">
-            <option value="">Mini y completo</option>
-            <option value="minis">Solo minis</option>
+            <option value="">Decant y completo</option>
+            <option value="decants">Solo decants</option>
             <option value="completo">Solo frasco completo</option>
+            <option value="sets">Sets de perfumes</option>
           </select>
         </label>
+        <label class="select" id="fCategoriaWrap"><span class="sr-only">Categoría</span><select name="categoria" id="fCategoria"><option value="">Todas las categorías</option></select></label>
         <label class="select"><span class="sr-only">Marca</span><select name="marca" id="fMarca"><option value="">Todas las marcas</option></select></label>
         <label class="select"><span class="sr-only">Para</span>
           <select name="para">
@@ -82,9 +84,9 @@
         <label class="select"><span class="sr-only">Precio</span>
           <select name="precio">
             <option value="">Cualquier precio</option>
-            <option value="0-100000">Hasta $100.000</option>
-            <option value="100000-200000">$100.000 a $200.000</option>
-            <option value="200000-">Más de $200.000</option>
+            <option value="0-500">Hasta Q500</option>
+            <option value="500-1000">Q500 a Q1,000</option>
+            <option value="1000-">Más de Q1,000</option>
           </select>
         </label>
         <span class="filters-sort">

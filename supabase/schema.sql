@@ -15,11 +15,15 @@ create table if not exists public.products (
   updated_at timestamptz not null default now()
 );
 
--- Ajustes del sitio: 'upcoming' (próximo lanzamiento), 'families', 'brands' y 'showcase' (Destacados).
+-- Ajustes del sitio: 'upcoming' (próximo lanzamiento), 'families', 'brands', 'categories',
+-- 'showcase' (Destacados) y 'shop' (Shipping Protection).
 create table if not exists public.settings (
-  key text primary key check (key in ('upcoming', 'families', 'brands', 'showcase')),
+  key text primary key,
   value jsonb not null check (octet_length(value::text) < 50000)
 );
+alter table public.settings drop constraint if exists settings_key_check;
+alter table public.settings add constraint settings_key_check
+  check (key in ('upcoming', 'families', 'brands', 'showcase', 'categories', 'shop'));
 
 create table if not exists public.subscribers (
   email text not null check (length(email) <= 254 and email ~* '^[^\s@]+@[^\s@]+\.[^\s@]{2,}$'),

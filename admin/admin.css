@@ -552,7 +552,7 @@ a {
   position: relative;
 }
 .money::before {
-  content: '$';
+  content: 'Q';
   position: absolute;
   left: 14px;
   top: 50%;
@@ -1799,3 +1799,275 @@ a {
 .font-pick small { font-size: 11px; color: var(--muted); line-height: 1.25; }
 .font-pick:has(input:checked) { box-shadow: inset 0 0 0 2px var(--ink); }
 .font-pick:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- Marca / familia / categoría: elegir o crear al momento ---------- */
+.creatable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.creatable-new {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  animation: pop 220ms var(--ease-out) both;
+}
+.creatable-new input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Tipo de producto: perfume o set ---------- */
+.kind-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.kind-pick label {
+  position: relative;
+  cursor: pointer;
+}
+.kind-pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.kind-pick span {
+  display: grid;
+  gap: 2px;
+  height: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+.kind-pick strong {
+  font-weight: 500;
+}
+.kind-pick small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.kind-pick input:checked + span {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  background: color-mix(in srgb, var(--gold) 8%, var(--white));
+}
+.kind-pick input:focus-visible + span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------- Imagen del set (todos los perfumes juntos) ---------- */
+.set-visual {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.set-item {
+  position: relative;
+  z-index: var(--z, 1);
+  flex: 1 1 0;
+  min-width: 0;
+  height: calc(100% - var(--d, 0) * 12%);
+  margin-inline: calc(-14% / var(--n, 1));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.set-item svg,
+.set-item img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.12));
+}
+.set-item img {
+  border-radius: 6px;
+}
+.thumb.is-set {
+  padding: 6px 4px;
+}
+.set-preview {
+  height: 220px;
+  padding: 22px 18px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--liq, #b58a4c) 14%, var(--fog));
+  overflow: hidden;
+}
+.set-preview .no-photo {
+  height: 100%;
+}
+
+/* ---------- Editor de los perfumes del set ---------- */
+.set-editor {
+  gap: 10px;
+}
+.set-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.set-row {
+  display: grid;
+  grid-template-columns: 22px 68px minmax(0, 1fr) 44px;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(22, 48, 42, 0.04);
+  animation: pop 260ms var(--ease-out) both;
+}
+.set-row-n {
+  padding-top: 12px;
+  font-family: var(--serif);
+  font-size: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+.set-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 84px;
+  padding: 6px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+}
+.set-thumb svg {
+  height: 100%;
+  width: auto;
+}
+.set-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.set-thumb input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.set-thumb-label {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  padding: 2px 0;
+  border-radius: 6px;
+  background: rgba(12, 29, 25, 0.7);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+  pointer-events: none;
+}
+.set-thumb.is-loading {
+  opacity: 0.5;
+}
+.set-row-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.set-row-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ml-input {
+  position: relative;
+  width: 104px;
+}
+.ml-input span {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.ml-input input {
+  padding-right: 40px !important;
+}
+.set-color {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--c, #b58a4c);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  flex: none;
+}
+.set-color input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.set-row .icon-btn:disabled {
+  opacity: 0.25;
+  pointer-events: none;
+}
+#addSetItem {
+  align-self: flex-start;
+}
+#addSetItem .add-icon {
+  width: 18px;
+  height: 18px;
+}
+.set-price-field {
+  max-width: 260px;
+  margin-top: 6px;
+}
+@media (max-width: 520px) {
+  .set-row {
+    grid-template-columns: 60px minmax(0, 1fr) 40px;
+  }
+  .set-row-n {
+    display: none;
+  }
+  .set-thumb {
+    width: 60px;
+  }
+}
+/* ---------- Shipping Protection (Productos) ---------- */
+.protection-card {
+  margin-bottom: 16px;
+}
+.protection-form {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-top: 12px;
+}
+.protection-form .field {
+  width: 160px;
+}
+.protection-card .hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.set-preview {
+  margin-bottom: 16px;
+}
+.thumb.is-set .set-visual {
+  height: 100%;
+}
+
+.set-preview .set-visual {
+  max-width: calc(var(--n, 2) * 110px);
+  margin: 0 auto;
+}
