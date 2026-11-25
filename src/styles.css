@@ -1946,12 +1946,12 @@ button {
 
   /* ---------- Destacados ---------- */
   .sc-slide .sc-word {
-    transform: translateX(-50%) translateY(12%);
+    transform: translateY(12%);
     opacity: 0.5;
     transition: transform 1000ms var(--ease), opacity 800ms ease;
   }
   .sc-slide.is-center .sc-word {
-    transform: translateX(-50%);
+    transform: none;
     opacity: 1;
   }
   .sc-slide .sc-photo {
@@ -3269,5 +3269,121 @@ a.pill {
     border-color: var(--ink);
     transform: translateY(-1px);
     box-shadow: 0 8px 20px -12px rgb(0 0 0 / 0.3);
+  }
+}
+/* =========================================================
+   Animaciones al pasar el cursor (suaves, en 3D)
+   ========================================================= */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  /* ---------- Próximamente: el frasco se eleva, brilla y su resplandor crece ---------- */
+  .hero-bottle {
+    cursor: pointer;
+    transition: translate 700ms var(--ease);
+  }
+  .hero-bottle > :is(.bottle, .hero-photo) {
+    transition: transform 600ms var(--ease), scale 700ms var(--ease), filter 700ms ease;
+  }
+  .hero-bottle:hover {
+    translate: 0 -12px;
+  }
+  .hero-bottle:hover > :is(.bottle, .hero-photo) {
+    scale: 1.045;
+  }
+  .hero:not([data-silhouette='true']) .hero-bottle:hover > :is(.bottle, .hero-photo) {
+    filter: drop-shadow(0 34px 46px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 28px color-mix(in oklch, var(--hero-liq) 45%, transparent));
+  }
+  /* En modo silueta se deja ver un poquito más, como un adelanto */
+  .hero[data-silhouette='true'] .hero-bottle:hover .hero-photo,
+  .hero[data-silhouette='true'] .hero-bottle:hover .bottle-body {
+    filter: brightness(0.22) saturate(0.4) drop-shadow(0 0 1px rgba(233, 214, 180, 1))
+      drop-shadow(0 0 38px color-mix(in oklch, var(--hero-liq) 85%, transparent));
+  }
+  .hero.is-in .hero-bottle::after {
+    transition: opacity 500ms ease, transform 800ms var(--ease);
+  }
+  .hero.is-in .hero-bottle:hover::after {
+    transform: translateX(-50%) scale(1.3, 1.15);
+    filter: blur(10px) brightness(1.25);
+  }
+  .hero.is-in .hero-bottle:hover::before {
+    opacity: 0.9;
+    transform: translateX(-50%) scaleX(1.15);
+    transition: transform 800ms var(--ease), opacity 400ms ease;
+  }
+  /* Los frascos de los lados se abren un poco cuando el cursor está en el del centro */
+  .hero-lineup:has(.hero-bottle:hover) .lineup-side {
+    transition: translate 800ms var(--ease), opacity 600ms ease;
+  }
+  .hero-lineup:has(.hero-bottle:hover) .lineup-side:has(~ .hero-bottle) {
+    translate: -10px 4px;
+    opacity: 0.85;
+  }
+  .hero-lineup:has(.hero-bottle:hover) .hero-bottle ~ .lineup-side {
+    translate: 10px 4px;
+    opacity: 0.85;
+  }
+
+  /* ---------- Destacados: la tarjeta se inclina con el cursor, el frasco se acerca y pasa un brillo ---------- */
+  .sc-card {
+    --tx: 0;
+    --ty: 0;
+    transform: perspective(1000px) rotateY(calc(var(--tx) * 9deg)) rotateX(calc(var(--ty) * -7deg));
+    transition: transform 600ms var(--ease);
+  }
+  .sc-slide:hover .sc-card {
+    transition: transform 140ms linear;
+  }
+  .sc-photo {
+    transition: transform 1000ms var(--ease) 80ms, translate 600ms var(--ease), scale 600ms var(--ease), filter 600ms ease;
+  }
+  .sc-slide:hover .sc-photo {
+    translate: calc(var(--tx) * -10px) -10px;
+    scale: 1.05;
+    filter: drop-shadow(0 28px 26px rgba(0, 0, 0, 0.32));
+  }
+  .sc-word {
+    transition: transform 1000ms var(--ease), opacity 800ms ease, translate 700ms var(--ease);
+  }
+  .sc-slide:hover .sc-word {
+    translate: calc(var(--tx) * 14px) calc(var(--ty) * 8px);
+  }
+  .sc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 48%, transparent 60%);
+    mix-blend-mode: soft-light;
+    transform: translateX(-120%);
+  }
+  .sc-slide:hover .sc-card::after {
+    transform: translateX(120%);
+    transition: transform 1100ms var(--ease);
+  }
+
+  /* ---------- Otros detalles ---------- */
+  /* Botones: se levantan un poco */
+  .btn {
+    transition: transform 200ms var(--ease), background-color 200ms ease, box-shadow 300ms ease;
+  }
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px -12px rgb(0 0 0 / 0.45);
+  }
+  /* Marcas: la fila se inclina un poco hacia ti */
+  .brand-list a {
+    transition: transform 400ms var(--ease), padding 400ms var(--ease);
+    transform-origin: 0 50%;
+  }
+  .brand-list a:hover {
+    transform: perspective(700px) rotateY(-4deg) translateX(4px);
+  }
+  /* Cuenta regresiva: cada número se acerca al pasar el cursor */
+  .countdown > div {
+    transition: transform 400ms var(--ease);
+  }
+  .countdown > div:hover {
+    transform: perspective(400px) translateZ(18px);
   }
 }

@@ -247,6 +247,23 @@ else {
     });
   };
   track.addEventListener('scroll', () => (raf ||= requestAnimationFrame(markCenter)), { passive: true });
+  // Con mouse: la tarjeta se inclina hacia donde apunta el cursor (3D suave).
+  if (!reduceMotion && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    track.addEventListener('pointermove', (e) => {
+      const card = e.target.closest('.sc-slide')?.querySelector('.sc-card');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--tx', ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
+      card.style.setProperty('--ty', ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
+    });
+    track.addEventListener('pointerout', (e) => {
+      const slide = e.target.closest('.sc-slide');
+      if (!slide || slide.contains(e.relatedTarget)) return;
+      const card = slide.querySelector('.sc-card');
+      card?.style.setProperty('--tx', 0);
+      card?.style.setProperty('--ty', 0);
+    });
+  }
   window.addEventListener('resize', markCenter);
   markCenter();
   setTimeout(markCenter, 200);
