@@ -34,21 +34,30 @@ export const wordLines = (word) => {
 
 // Tamaño de la letra para que la línea más larga quepa a lo ancho y todas quepan a lo alto
 // (la tarjeta mide 100 de ancho por 125 de alto; la palabra usa como máximo 96 × 74).
-const wordSize = (lines) => {
+const wordSize = (lines, maxHeight = 74) => {
   const longest = Math.max(1, ...lines.map((l) => l.length));
   const byWidth = 96 / (longest * 0.56);
-  const byHeight = 74 / (lines.length * 0.88);
+  const byHeight = maxHeight / (lines.length * 0.88);
   return Math.min(34, byWidth, byHeight).toFixed(2);
+};
+
+// Dónde va la palabra: detrás del frasco, encima de la imagen, arriba o abajo.
+export const WORD_POSITIONS = {
+  behind: { label: 'Detrás del frasco', height: 74 },
+  front: { label: 'Encima de la imagen', height: 74 },
+  top: { label: 'Arriba', height: 27 },
+  bottom: { label: 'Abajo', height: 24 },
 };
 
 export function slideHTML(slide, { placeholder = '' } = {}) {
   const font = SHOWCASE_FONTS[slide.font] || SHOWCASE_FONTS[DEFAULT_FONT];
   const lines = wordLines(slide.word);
+  const pos = WORD_POSITIONS[slide.wordPos] ? slide.wordPos : 'behind';
   loadFonts([slide.font || DEFAULT_FONT]);
   return `
-    <span class="sc-card" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)}">
+    <span class="sc-card sc-pos-${pos}" style="--bg:${esc(slide.background || '#D9D5CF')};--fg:${esc(slide.textColor || '#1D1B19')};--font:${esc(font.family)}">
       <span class="sc-light" aria-hidden="true"></span>
-      <span class="sc-word" aria-hidden="true" style="--fs:${wordSize(lines)}cqw">${lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span>
+      <span class="sc-word" aria-hidden="true" style="--fs:${wordSize(lines, WORD_POSITIONS[pos].height)}cqw">${lines.map((l) => `<span>${esc(l)}</span>`).join('')}</span>
       ${slide.photo ? `<img class="sc-photo" src="${esc(slide.photo)}" alt="" loading="lazy" decoding="async">` : placeholder}
       <span class="sc-floor" aria-hidden="true"></span>
     </span>`;

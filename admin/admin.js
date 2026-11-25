@@ -1,6 +1,6 @@
 import { request, login, logout, sessionStatus, changePassword, ApiError } from './backend.js';
 import { NOTIFY_ENABLED } from '../src/config.js';
-import { slideHTML } from '../src/showcase.js';
+import { slideHTML, WORD_POSITIONS } from '../src/showcase.js';
 import { SHOWCASE_FONTS, DEFAULT_FONT, loadFonts } from '../src/fonts.js';
 import { setVisualHTML, isSet } from '../src/setvisual.js';
 import { RULES, ruleText } from '../src/categories.js';
@@ -1512,6 +1512,16 @@ async function openSlideEditor(slide, onChange) {
               .join('')}
           </div>
         </div>
+        <div class="field full">
+          <span class="label">Posición de las letras</span>
+          <div class="pos-picks" role="radiogroup" aria-label="Posición de las letras">
+            ${Object.entries(WORD_POSITIONS)
+              .map(
+                ([id, w]) => `<label class="pos-pick"><input type="radio" name="wordPos" value="${id}" ${id === (x.wordPos || 'behind') ? 'checked' : ''}><span><i class="pos-ico pos-ico-${id}" aria-hidden="true"><b></b><em></em></i>${esc(w.label)}</span></label>`,
+              )
+              .join('')}
+          </div>
+        </div>
       </div>
       <div id="scColors" class="color-pair">
         ${colorPicker({ name: 'background', value: x.background, label: 'Color de fondo', hint: 'Grises cálidos dan el efecto de estudio con luz de ventana.', swatches: SC_BG })}
@@ -1546,7 +1556,7 @@ async function openSlideEditor(slide, onChange) {
   const read = () => {
     const d = readForm(form);
     const [linkType, linkId = null] = String(d.link || 'none').split(':');
-    return { word: d.word, font: d.font, background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
+    return { word: d.word, font: d.font, wordPos: d.wordPos || 'behind', background: d.background, textColor: d.textColor, visible: !!d.visible, linkType, linkId };
   };
   let pendingUrl = null;
   let pendingLink = null; // foto de un perfume ya cargado o por link, en un destacado nuevo (se guarda al crearlo)

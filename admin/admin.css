@@ -2259,3 +2259,78 @@ a {
     grid-template-columns: 1fr;
   }
 }
+/* ---------- Destacados: posición de las letras ---------- */
+.pos-picks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.pos-pick {
+  position: relative;
+  cursor: pointer;
+}
+.pos-pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pos-pick > span {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 12px;
+  text-align: center;
+  transition: box-shadow 160ms ease, background-color 160ms ease;
+}
+.pos-pick input:checked + span {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  background: color-mix(in srgb, var(--gold) 10%, var(--white));
+}
+.pos-pick input:focus-visible + span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* Dibujito: rectángulo = tarjeta, barra = palabra, cuadro = frasco */
+.pos-ico {
+  position: relative;
+  width: 34px;
+  height: 42px;
+  border-radius: 4px;
+  background: #ddd8d1;
+}
+.pos-ico b,
+.pos-ico em {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+}
+.pos-ico b {
+  width: 28px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.pos-ico em {
+  bottom: 6px;
+  width: 12px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--gold);
+}
+.pos-ico-behind b { top: 17px; z-index: 0; }
+.pos-ico-behind em { z-index: 1; }
+.pos-ico-front b { top: 17px; z-index: 2; }
+.pos-ico-front em { z-index: 1; }
+.pos-ico-top b { top: 4px; }
+.pos-ico-top em { height: 18px; }
+.pos-ico-bottom b { bottom: 3px; z-index: 2; }
+.pos-ico-bottom em { bottom: 13px; height: 18px; }
+@media (max-width: 520px) {
+  .pos-picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -267,6 +267,7 @@ export function cleanSlide(input, existing, { fonts, brands, productIds, categor
     word,
     font: oneOf(input.font, new Set(fonts), 'El tipo de letra', existing.font || fonts[0]),
     textColor: color(input.textColor, existing.textColor || '#1D1B19'),
+    wordPos: oneOf(input.wordPos, new Set(['behind', 'front', 'top', 'bottom']), 'La posición de la palabra', existing.wordPos || 'behind'),
     background: color(input.background, existing.background || '#D9D5CF'),
     linkType: type,
     linkId,
